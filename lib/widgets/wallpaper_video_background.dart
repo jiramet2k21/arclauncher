@@ -19,9 +19,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:flutter/services.dart';
 
-class WallpaperVideoBackground extends StatefulWidget {
+/// Video wallpaper rendered by a native platform view
+/// (media3 ExoPlayer with decoder fallback in [VideoWallpaperPlatformView]).
+/// The plain video_player plugin fails on some TVs whose hardware decoders
+/// crash when initialized from Flutter's surface pipeline and offers no
+/// software-decoder fallback.
+class WallpaperVideoBackground extends StatelessWidget {
   const WallpaperVideoBackground({
     super.key,
     required this.file,
@@ -30,98 +35,15 @@ class WallpaperVideoBackground extends StatefulWidget {
   final File file;
 
   @override
-  State<WallpaperVideoBackground> createState() =>
-      _WallpaperVideoBackgroundState();
-}
-
-class _WallpaperVideoBackgroundState extends State<WallpaperVideoBackground>
-    with WidgetsBindingObserver {
-  VideoPlayerController? _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initController();
-  }
-
-  @override
-  void didUpdateWidget(WallpaperVideoBackground oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.file.path != widget.file.path) {
-      _disposeController();
-      _initController();
-    }
-  }
-
-  void _initController() {
-    final controller = VideoPlayerController.file(widget.file);
-    _controller = controller;
-    controller.initialize().then((_) {
-      if (!mounted || _controller != controller) {
-        _controller = null;
-        controller.dispose();
-        return;
-      }
-      controller.setLooping(true);
-      controller.setVolume(0);
-      controller.play();
-      setState(() {});
-    }).catchError((error) {
-      debugPrint('Video wallpaper initialization failed: $error');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  void _disposeController() {
-    _controller?.dispose();
-    _controller = null;
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _disposeController();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
-
-    if (state == AppLifecycleState.resumed) {
-      controller.play();
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      controller.pause();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null ||
-        !controller.value.isInitialized ||
-        controller.value.hasError) {
-      // Not ready yet (or the codec cannot play the file): stay black instead
-      // of showing a frozen/partial frame over the home screen.
-      return const ColoredBox(color: Colors.black);
-    }
-
-    final size = controller.value.size;
     return RepaintBoundary(
-        child: SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: size.width,
-          height: size.height,
-          child: RepaintBoundary(child: VideoPlayer(controller)),
+      child: SizedBox.expand(
+        child: AndroidView(
+          viewType: 'video_wallpaper_view',
+          creationParams: <String, dynamic>{'path': file.path},
+          creationParamsCodec: const StandardMessageCodec(),
         ),
       ),
-    ));
+    );
   }
 }

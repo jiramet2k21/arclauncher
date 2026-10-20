@@ -201,6 +201,21 @@ public class MainActivity extends FlutterActivity {
 
         new EventChannel(messenger, NETWORK_EVENT_CHANNEL).setStreamHandler(
                 new NetworkEventStreamHandler(this));
+
+        flutterEngine.getPlatformViewsController().getRegistry()
+                .registerViewFactory("video_wallpaper_view", new VideoWallpaperViewFactory());
+    }
+
+    @Override
+    protected void onPause() {
+        VideoWallpaperPlatformView.pauseAll();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        VideoWallpaperPlatformView.resumeAll();
     }
 
     private List<Map<String, Serializable>> getApplications() {

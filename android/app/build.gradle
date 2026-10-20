@@ -147,3 +147,9 @@ android {
 flutter {
     source '../..'
 }
+
+dependencies {
+    // Matches video_player_android 2.8.x to avoid duplicate media3 classes.
+    implementation "androidx.media3:media3-exoplayer:1.4.1"
+    implementation "androidx.media3:media3-ui:1.4.1"
+}
