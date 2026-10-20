@@ -120,6 +120,16 @@ class FLauncherChannel {
     return videos?.map((e) => e.cast<String, dynamic>()).toList() ?? [];
   }
 
+  Future<List<Map<String, dynamic>>> getMediaStoreImageFolders() async {
+    List<Map<dynamic, dynamic>>? folders = await _methodChannel.invokeListMethod("getMediaStoreImageFolders");
+    return folders?.map((e) => e.cast<String, dynamic>()).toList() ?? [];
+  }
+
+  Future<List<Map<String, dynamic>>> getMediaStoreImagesInBucket(String bucketId) async {
+    List<Map<dynamic, dynamic>>? images = await _methodChannel.invokeListMethod("getMediaStoreImagesInBucket", bucketId);
+    return images?.map((e) => e.cast<String, dynamic>()).toList() ?? [];
+  }
+
   Future<Uint8List?> getMediaStoreVideoThumbnail(int id, {String? path}) async {
     try {
       return await _methodChannel.invokeMethod<Uint8List>(

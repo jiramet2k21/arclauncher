@@ -310,6 +310,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get video => 'Video';
 
   @override
+  String get slideshow => 'Slayt gösterisi';
+
+  @override
+  String get slideshowInterval => 'Slayt gösterisi aralığı';
+
+  @override
+  String get slideshowFolder => 'Slayt gösterisi klasörü';
+
+  @override
+  String get slideshowNoFolder => 'Klasör seçilmedi';
+
+  @override
   String get pickDayVideoWallpaper => 'Gündüz videosunu seç';
 
   @override

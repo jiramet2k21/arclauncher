@@ -40,10 +40,23 @@ class WallpaperService extends ChangeNotifier {
   Timer? _timer;
   int _wallpaperRevision = 0;
 
+  bool _lastSlideshowEnabled = false;
+  int _lastSlideshowInterval = 30;
+  List<File> _slideshowFiles = [];
+  int _slideshowIndex = 0;
+  Timer? _slideshowTimer;
+
   ImageProvider? _wallpaper;
   int get wallpaperRevision => _wallpaperRevision;
 
   ImageProvider? get wallpaper => _wallpaper;
+
+  bool get slideshowActive =>
+      _settingsService.slideshowEnabled && _slideshowFiles.isNotEmpty;
+
+  List<File> get slideshowFiles => List.unmodifiable(_slideshowFiles);
+
+  int get slideshowIndex => _slideshowIndex;
 
   File? get wallpaperVideoFile {
     final f = _resolveActiveVideoFile();
@@ -69,12 +82,31 @@ class WallpaperService extends ChangeNotifier {
       _updateTimerState();
       _updateWallpaper();
     }
+
+    final slideshowEnabled = _settingsService.slideshowEnabled;
+    final slideshowInterval = _settingsService.slideshowIntervalSeconds;
+    if (slideshowEnabled != _lastSlideshowEnabled) {
+      _lastSlideshowEnabled = slideshowEnabled;
+      _lastSlideshowInterval = slideshowInterval;
+      if (slideshowEnabled) {
+        _startSlideshowFromSettings();
+      } else {
+        stopSlideshow();
+      }
+      _updateWallpaper(force: true);
+    } else if (slideshowInterval != _lastSlideshowInterval) {
+      _lastSlideshowInterval = slideshowInterval;
+      if (slideshowActive) {
+        _restartSlideshowTimer();
+      }
+    }
   }
 
   @override
   void dispose() {
     _settingsService.removeListener(_onSettingsChanged);
     _timer?.cancel();
+    _slideshowTimer?.cancel();
     super.dispose();
   }
 
@@ -89,8 +121,13 @@ class WallpaperService extends ChangeNotifier {
     _initialized = true;
 
     _lastTimeBasedEnabled = _settingsService.timeBasedWallpaperEnabled;
+    _lastSlideshowEnabled = _settingsService.slideshowEnabled;
+    _lastSlideshowInterval = _settingsService.slideshowIntervalSeconds;
     _updateWallpaper();
     _updateTimerState();
+    if (_lastSlideshowEnabled) {
+      _startSlideshowFromSettings();
+    }
   }
 
   void _updateTimerState() {
@@ -207,6 +244,7 @@ class WallpaperService extends ChangeNotifier {
   }
 
   Future<void> _saveImage(File sourceFile, File targetFile) async {
+    await _deactivateSlideshow();
     await _replacePairedVideo(targetFile);
 
     final readStream = sourceFile.openRead();
@@ -221,6 +259,7 @@ class WallpaperService extends ChangeNotifier {
       throw StateError('Unable to read the selected image');
     }
 
+    await _deactivateSlideshow();
     await _replacePairedVideo(targetFile);
     await targetFile.writeAsBytes(imageBytes, flush: true);
 
@@ -244,6 +283,7 @@ class WallpaperService extends ChangeNotifier {
   }
 
   Future<void> _saveVideo(File sourceFile, File targetVideoFile) async {
+    await _deactivateSlideshow();
     final pairedImage = _pairedImageForVideo(targetVideoFile);
     if (pairedImage != null && await pairedImage.exists()) {
       await pairedImage.delete();
@@ -264,7 +304,99 @@ class WallpaperService extends ChangeNotifier {
     return null;
   }
 
+  Future<void> startSlideshowFromBucket(String bucketId, {String? folderName}) async {
+    const maxImages = 100;
+    final images = await _channel.getMediaStoreImagesInBucket(bucketId);
+
+    final directory = await getApplicationDocumentsDirectory();
+    final slideshowDir = Directory("${directory.path}/slideshow");
+    if (await slideshowDir.exists()) {
+      await slideshowDir.delete(recursive: true);
+    }
+    await slideshowDir.create(recursive: true);
+
+    final files = <File>[];
+    for (final entry in images) {
+      if (files.length >= maxImages) break;
+      final path = entry['path'] as String?;
+      if (path == null) continue;
+      final source = File(path);
+      if (!await source.exists()) continue;
+      final dotIndex = path.lastIndexOf('.');
+      final extension = dotIndex >= 0 ? path.substring(dotIndex) : '.jpg';
+      final target = File(
+        "${slideshowDir.path}/${files.length.toString().padLeft(5, '0')}$extension",
+      );
+      await source.copy(target.path);
+      files.add(target);
+    }
+
+    if (files.isEmpty) {
+      throw StateError('No images found in the selected folder');
+    }
+
+    await cleanImageWallpaperFiles();
+    await cleanVideoWallpaperFiles();
+    await _settingsService.setSlideshowFolderName(folderName ?? bucketId);
+
+    _slideshowFiles = files;
+    _slideshowIndex = 0;
+    _restartSlideshowTimer();
+    _updateWallpaper(force: true);
+  }
+
+  Future<void> _startSlideshowFromSettings() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final slideshowDir = Directory("${directory.path}/slideshow");
+    if (await slideshowDir.exists()) {
+      final entries = await slideshowDir.list().toList();
+      final files = entries.whereType<File>().toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      _slideshowFiles = files;
+    } else {
+      _slideshowFiles = [];
+    }
+    _slideshowIndex = 0;
+    _restartSlideshowTimer();
+    notifyListeners();
+  }
+
+  void _restartSlideshowTimer() {
+    _slideshowTimer?.cancel();
+    _slideshowTimer = null;
+    if (slideshowActive && _slideshowFiles.length > 1) {
+      _slideshowTimer = Timer.periodic(
+        Duration(seconds: _settingsService.slideshowIntervalSeconds),
+        (_) {
+          _slideshowIndex = (_slideshowIndex + 1) % _slideshowFiles.length;
+          _wallpaperRevision++;
+          notifyListeners();
+        },
+      );
+    }
+  }
+
+  Future<void> stopSlideshow() async {
+    _slideshowTimer?.cancel();
+    _slideshowTimer = null;
+    _slideshowFiles = [];
+    _slideshowIndex = 0;
+    _updateWallpaper(force: true);
+  }
+
+  Future<void> _deactivateSlideshow() async {
+    if (_slideshowFiles.isEmpty && !_settingsService.slideshowEnabled) return;
+    _slideshowTimer?.cancel();
+    _slideshowTimer = null;
+    _slideshowFiles = [];
+    _slideshowIndex = 0;
+    if (_settingsService.slideshowEnabled) {
+      await _settingsService.setSlideshowEnabled(false);
+    }
+  }
+
   Future<void> setGradient(FLauncherGradient fLauncherGradient) async {
+    await _deactivateSlideshow();
     await cleanImageWallpaperFiles();
     await cleanVideoWallpaperFiles();
 

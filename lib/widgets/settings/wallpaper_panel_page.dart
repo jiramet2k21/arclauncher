@@ -23,6 +23,7 @@ import 'package:flauncher/providers/wallpaper_service.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flauncher/widgets/settings/gradient_panel_page.dart';
 import 'package:flauncher/widgets/tv_media_picker.dart';
+import 'package:flauncher/widgets/tv_folder_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flauncher/l10n/app_localizations.dart';
@@ -49,8 +50,23 @@ class WallpaperPanelPage extends StatelessWidget {
               title: Text(localizations.timeBasedWallpaper),
               secondary: Icon(Icons.access_time),
               value: settings.timeBasedWallpaperEnabled,
-              onChanged: (value) =>
-                  settings.setTimeBasedWallpaperEnabled(value),
+              onChanged: (value) {
+                settings.setTimeBasedWallpaperEnabled(value);
+                if (value) settings.setSlideshowEnabled(false);
+              },
+            );
+          },
+        ),
+        Consumer<SettingsService>(
+          builder: (_, settings, __) {
+            return RoundedSwitchListTile(
+              title: Text(localizations.slideshow),
+              secondary: Icon(Icons.slideshow),
+              value: settings.slideshowEnabled,
+              onChanged: (value) {
+                settings.setSlideshowEnabled(value);
+                if (value) settings.setTimeBasedWallpaperEnabled(false);
+              },
             );
           },
         ),
@@ -94,6 +110,26 @@ class WallpaperPanelPage extends StatelessWidget {
                       (s, media) => s.pickVideoWallpaperNight(File(media.path)),
                       true,
                     ),
+                  ),
+                ],
+              );
+            } else if (settings.slideshowEnabled) {
+              return Column(
+                children: [
+                  FocusableSettingsTile(
+                    autofocus: true,
+                    leading: Icon(Icons.timelapse),
+                    title: Text(localizations.slideshowInterval),
+                    trailing: Text(_formatInterval(settings.slideshowIntervalSeconds)),
+                    onPressed: () => _pickSlideshowInterval(context),
+                  ),
+                  FocusableSettingsTile(
+                    leading: Icon(Icons.folder),
+                    title: Text(localizations.slideshowFolder),
+                    trailing: Text(
+                      settings.slideshowFolderName ?? localizations.slideshowNoFolder,
+                    ),
+                    onPressed: () => _pickSlideshowFolder(context),
                   ),
                 ],
               );
@@ -142,6 +178,53 @@ class WallpaperPanelPage extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _pickSlideshowInterval(BuildContext context) async {
+    final settings = context.read<SettingsService>();
+    const options = [15, 30, 60, 300];
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Slideshow interval'),
+        children: options
+            .map(
+              (seconds) => SimpleDialogOption(
+                onPressed: () => Navigator.of(ctx).pop(seconds),
+                child: Text(_formatInterval(seconds)),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (choice != null) {
+      await settings.setSlideshowIntervalSeconds(choice);
+    }
+  }
+
+  Future<void> _pickSlideshowFolder(BuildContext context) async {
+    final folder = await TvFolderPicker.show(context);
+    if (folder == null || !context.mounted) return;
+    try {
+      await context.read<WallpaperService>().startSlideshowFromBucket(
+            folder.id,
+            folderName: folder.name,
+          );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No images found in the selected folder'),
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatInterval(int seconds) {
+    if (seconds < 60) return '$seconds s';
+    final minutes = seconds ~/ 60;
+    return '$minutes min';
   }
 
   Future<void> _pickWallpaper(

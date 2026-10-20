@@ -45,6 +45,9 @@ const String _showWatchNextSection = "show_watch_next_section";
 const String _dockDarkBackground = "dock_dark_background";
 const String _dockShadowEnabled = "dock_shadow_enabled";
 const String _showFocusBorders = "show_focus_borders";
+const String _slideshowEnabled = "slideshow_enabled";
+const String _slideshowIntervalSeconds = "slideshow_interval_seconds";
+const String _slideshowFolderName = "slideshow_folder_name";
 
 // WiFi usage period options
 const String WIFI_USAGE_DAILY = "daily";
@@ -236,6 +239,31 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> setTimeBasedWallpaperEnabled(bool enabled) async {
     await _sharedPreferences.setBool("time_based_wallpaper_enabled", enabled);
+    notifyListeners();
+  }
+
+  bool get slideshowEnabled => _sharedPreferences.getBool(_slideshowEnabled) ?? false;
+
+  int get slideshowIntervalSeconds => _sharedPreferences.getInt(_slideshowIntervalSeconds) ?? 30;
+
+  String? get slideshowFolderName => _sharedPreferences.getString(_slideshowFolderName);
+
+  Future<void> setSlideshowEnabled(bool enabled) async {
+    await _sharedPreferences.setBool(_slideshowEnabled, enabled);
+    notifyListeners();
+  }
+
+  Future<void> setSlideshowIntervalSeconds(int seconds) async {
+    await _sharedPreferences.setInt(_slideshowIntervalSeconds, seconds);
+    notifyListeners();
+  }
+
+  Future<void> setSlideshowFolderName(String? name) async {
+    if (name == null) {
+      await _sharedPreferences.remove(_slideshowFolderName);
+    } else {
+      await _sharedPreferences.setString(_slideshowFolderName, name);
+    }
     notifyListeners();
   }
 }

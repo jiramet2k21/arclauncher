@@ -43,6 +43,7 @@ import androidx.core.content.FileProvider;
 import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,6 +148,8 @@ public class MainActivity extends FlutterActivity {
                 }
                 case "openWifiSettings" -> result.success(openWifiSettings());
                 case "getMediaStoreImages" -> result.success(getMediaStoreImages());
+                case "getMediaStoreImageFolders" -> result.success(getMediaStoreImageFolders());
+                case "getMediaStoreImagesInBucket" -> result.success(getMediaStoreImagesInBucket((String) call.arguments()));
                 case "getMediaStoreVideos" -> result.success(getMediaStoreVideos());
                 case "getMediaStoreVideoThumbnail" -> {
                     Number id = call.argument("id");
@@ -986,6 +989,101 @@ public class MainActivity extends FlutterActivity {
             permissions = new String[]{Manifest.permission.READ_EXTERNAL_STORAGE};
         }
         ActivityCompat.requestPermissions(this, permissions, MEDIA_PERMISSION_REQUEST_CODE);
+    }
+
+    private List<Map<String, Object>> getMediaStoreImageFolders() {
+        List<Map<String, Object>> folders = new ArrayList<>();
+        String[] projection = {
+            MediaStore.Images.Media.BUCKET_ID,
+            MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+        };
+
+        Map<String, Integer> counts = new HashMap<>();
+        Map<String, String> names = new HashMap<>();
+
+        try (Cursor cursor = getContentResolver().query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection, null, null, null)) {
+            if (cursor != null) {
+                int bucketIdCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID);
+                int nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
+                while (cursor.moveToNext()) {
+                    String bucketId = cursor.getString(bucketIdCol);
+                    if (bucketId == null) {
+                        continue;
+                    }
+                    String name = cursor.getString(nameCol);
+                    if (name == null || name.isEmpty()) {
+                        name = "Unknown";
+                    }
+                    counts.put(bucketId, counts.getOrDefault(bucketId, 0) + 1);
+                    names.putIfAbsent(bucketId, name);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        List<String> sortedIds = new ArrayList<>(counts.keySet());
+        Collections.sort(sortedIds, (a, b) -> {
+            String nameA = names.getOrDefault(a, "");
+            String nameB = names.getOrDefault(b, "");
+            int byName = nameA.compareToIgnoreCase(nameB);
+            return byName != 0 ? byName : a.compareTo(b);
+        });
+
+        for (String bucketId : sortedIds) {
+            Map<String, Object> folder = new HashMap<>();
+            folder.put("id", bucketId);
+            folder.put("name", names.get(bucketId));
+            folder.put("count", counts.get(bucketId));
+            folders.add(folder);
+        }
+
+        return folders;
+    }
+
+    private List<Map<String, Object>> getMediaStoreImagesInBucket(String bucketId) {
+        List<Map<String, Object>> images = new ArrayList<>();
+        if (bucketId == null || bucketId.isEmpty()) {
+            return images;
+        }
+
+        String[] projection = {
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.DATA,
+            MediaStore.Images.Media.DATE_ADDED
+        };
+        String selection = MediaStore.Images.Media.BUCKET_ID + " = ?";
+        String[] selectionArgs = {bucketId};
+        String sortOrder = MediaStore.Images.Media.DATE_ADDED + " DESC";
+
+        try (Cursor cursor = getContentResolver().query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection, selection, selectionArgs, sortOrder)) {
+            if (cursor != null) {
+                int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                int nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
+                int dataCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(idCol);
+                    String path = cursor.getString(dataCol);
+                    if (path == null) {
+                        continue;
+                    }
+                    Uri contentUri = Uri.withAppendedPath(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, String.valueOf(id));
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", id);
+                    item.put("name", cursor.getString(nameCol));
+                    item.put("path", path);
+                    item.put("uri", contentUri.toString());
+                    images.add(item);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return images;
     }
 
     private List<Map<String, Object>> getMediaStoreImages() {

@@ -313,6 +313,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get video => 'Vídeo';
 
   @override
+  String get slideshow => 'Presentación de diapositivas';
+
+  @override
+  String get slideshowInterval => 'Intervalo de presentación';
+
+  @override
+  String get slideshowFolder => 'Carpeta de presentación';
+
+  @override
+  String get slideshowNoFolder => 'Ninguna carpeta seleccionada';
+
+  @override
   String get pickDayVideoWallpaper => 'Elegir vídeo de día';
 
   @override

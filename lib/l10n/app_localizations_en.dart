@@ -308,6 +308,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get video => 'Video';
 
   @override
+  String get slideshow => 'Slideshow';
+
+  @override
+  String get slideshowInterval => 'Slideshow interval';
+
+  @override
+  String get slideshowFolder => 'Slideshow folder';
+
+  @override
+  String get slideshowNoFolder => 'No folder selected';
+
+  @override
   String get pickDayVideoWallpaper => 'Pick day video';
 
   @override

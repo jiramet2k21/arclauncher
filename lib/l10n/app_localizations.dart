@@ -658,6 +658,30 @@ abstract class AppLocalizations {
   /// **'Video'**
   String get video;
 
+  /// No description provided for @slideshow.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow'**
+  String get slideshow;
+
+  /// No description provided for @slideshowInterval.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow interval'**
+  String get slideshowInterval;
+
+  /// No description provided for @slideshowFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow folder'**
+  String get slideshowFolder;
+
+  /// No description provided for @slideshowNoFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'No folder selected'**
+  String get slideshowNoFolder;
+
   /// No description provided for @pickDayVideoWallpaper.
   ///
   /// In en, this message translates to:

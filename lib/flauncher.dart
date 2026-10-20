@@ -33,6 +33,7 @@ import 'package:flauncher/widgets/category_clean_row.dart';
 import 'package:flauncher/widgets/category_row.dart';
 import 'package:flauncher/widgets/launcher_alternative_view.dart';
 import 'package:flauncher/widgets/focus_aware_app_bar.dart';
+import 'package:flauncher/widgets/wallpaper_slideshow_background.dart';
 import 'package:flauncher/widgets/wallpaper_video_background.dart';
 import 'package:flauncher/widgets/watch_next_row.dart';
 import 'package:flutter/material.dart';
@@ -102,7 +103,7 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
             selector: (_, launcherState, settings, wallpaperService) => (
               launcherState.appGridFocused,
               settings.backgroundBlurDisabled,
-              wallpaperService.wallpaperVideoFile != null,
+              wallpaperService.wallpaperVideoFile != null || wallpaperService.slideshowActive,
             ),
             builder: (_, data, __) {
               final (appGridFocused, blurDisabled, hasVideoWallpaper) = data;
@@ -487,6 +488,13 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
   Widget _wallpaper(BuildContext context, WallpaperService wallpaperService) {
     final screenSize = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    if (wallpaperService.slideshowActive) {
+      return WallpaperSlideshowBackground(
+        files: wallpaperService.slideshowFiles,
+        index: wallpaperService.slideshowIndex,
+        imageHeight: (screenSize.height * dpr).round(),
+      );
+    }
     final videoFile = wallpaperService.wallpaperVideoFile;
     if (videoFile != null) {
       return SizedBox(
