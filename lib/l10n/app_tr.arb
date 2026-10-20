@@ -142,5 +142,15 @@
     "fontStyleMonospace": "Eş aralıklı",
     "fontStyleSerif": "Serif",
     "fontStyleCondensed": "Yoğun",
-    "fontStyleGlow": "Parıltı"
+    "fontStyleGlow": "Parıltı",
+    "appOpenDelay": "App start delay",
+    "appHighlightSize": "Highlight size",
+    "highlightSizeSmall": "Small",
+    "highlightSizeMedium": "Medium",
+    "highlightSizeLarge": "Large",
+    "statusBarGradient": "Status bar gradient",
+    "gradientOff": "Off",
+    "gradientSmall": "Small",
+    "gradientMedium": "Medium",
+    "gradientLarge": "Large"
 }

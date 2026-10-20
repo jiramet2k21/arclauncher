@@ -40,9 +40,6 @@ class ClockSizePage extends StatelessWidget {
       case 40:
         label = "Large";
         break;
-      case 54:
-        label = "Extra large";
-        break;
       case 28:
       default:
         label = "Normal";

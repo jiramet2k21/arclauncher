@@ -88,17 +88,14 @@ public class MediaSessionListenerService extends NotificationListenerService {
                 List<MediaController> active =
                         manager.getActiveSessions(
                                 new ComponentName(this, MediaSessionListenerService.class));
-                android.util.Log.i("MediaSessionSvc", "refresh: activeControllers=" + active.size());
                 releaseControllers();
                 for (MediaController controller : active) {
                     controller.registerCallback(controllerCallback);
                     controllers.add(controller);
                 }
                 sessions = describeAll(active);
-                android.util.Log.i("MediaSessionSvc", "refresh: described=" + sessions.size());
             }
         } catch (Exception e) {
-            android.util.Log.e("MediaSessionSvc", "refresh failed", e);
             sessions = new ArrayList<>();
         }
         currentSessions = sessions;
@@ -129,8 +126,6 @@ public class MediaSessionListenerService extends NotificationListenerService {
             try {
                 sessions.add(describe(controller));
             } catch (Exception e) {
-                android.util.Log.e("MediaSessionSvc", "describe failed for "
-                        + controller.getPackageName(), e);
             }
         }
         return sessions;
@@ -294,6 +289,13 @@ public class MediaSessionListenerService extends NotificationListenerService {
     public static void openListenerSettings(Context context) {
         try {
             Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Exception ignored) {
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + context.getPackageName()));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         } catch (Exception ignored) {

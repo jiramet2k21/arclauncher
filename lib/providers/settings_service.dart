@@ -56,10 +56,13 @@ const String _dockMagnificationEnabled = "dock_magnification_enabled";
 const String _showMediaControlsInStatusBar = "show_media_controls_in_status_bar";
 const String _openAppAnimationEnabled = "open_app_animation_enabled";
 const String _openAppAnimationStyle = "open_app_animation_style";
+const String _openAppLaunchDelay = "open_app_launch_delay";
+const String _appHighlightSize = "app_highlight_size";
+const String _statusBarGradient = "status_bar_gradient";
 
 /// Status bar clock size steps (logical pixels). The date is rendered at the
 /// same size as the clock.
-const List<int> clockSizeOptions = <int>[20, 28, 40, 54];
+const List<int> clockSizeOptions = <int>[20, 28, 40];
 const int defaultClockSize = 40;
 
 /// Status bar clock/date typeface + decorative styles. "default" keeps the
@@ -86,6 +89,20 @@ const List<String> openAppAnimationStyleOptions = <String>[
   "circle",
 ];
 const String defaultOpenAppAnimationStyle = "zoom";
+
+/// Seconds from the start of the open-app animation until the app is actually
+/// launched. The timer runs concurrently with the animation, so the animation
+/// holds its final frame until it elapses.
+const List<int> openAppLaunchDelayOptions = <int>[1, 2, 3];
+const int defaultOpenAppLaunchDelay = 1;
+
+/// Size of the app-card focus highlight outline (small/medium/large).
+const List<String> appHighlightSizeOptions = <String>["small", "medium", "large"];
+const String defaultAppHighlightSize = "small";
+
+/// Dark gradient scrim behind the status bar (off/small/medium/large).
+const List<String> statusBarGradientOptions = <String>["off", "small", "medium", "large"];
+const String defaultStatusBarGradient = "off";
 
 // WiFi usage period options
 const String WIFI_USAGE_DAILY = "daily";
@@ -201,6 +218,30 @@ class SettingsService extends ChangeNotifier {
     return (value != null && openAppAnimationStyleOptions.contains(value))
         ? value
         : defaultOpenAppAnimationStyle;
+  }
+
+  /// Seconds from animation start until the app is launched (concurrent timer).
+  int get openAppLaunchDelay {
+    final value = _sharedPreferences.getInt(_openAppLaunchDelay);
+    return (value != null && openAppLaunchDelayOptions.contains(value))
+        ? value
+        : defaultOpenAppLaunchDelay;
+  }
+
+  /// Size of the app-card focus highlight outline.
+  String get appHighlightSize {
+    final value = _sharedPreferences.getString(_appHighlightSize);
+    return (value != null && appHighlightSizeOptions.contains(value))
+        ? value
+        : defaultAppHighlightSize;
+  }
+
+  /// Dark gradient scrim behind the status bar.
+  String get statusBarGradient {
+    final value = _sharedPreferences.getString(_statusBarGradient);
+    return (value != null && statusBarGradientOptions.contains(value))
+        ? value
+        : defaultStatusBarGradient;
   }
 
   Color get accentColor {
@@ -389,6 +430,30 @@ class SettingsService extends ChangeNotifier {
     await _sharedPreferences.setString(
       _openAppAnimationStyle,
       openAppAnimationStyleOptions.contains(style) ? style : defaultOpenAppAnimationStyle,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setOpenAppLaunchDelay(int seconds) async {
+    await _sharedPreferences.setInt(
+      _openAppLaunchDelay,
+      openAppLaunchDelayOptions.contains(seconds) ? seconds : defaultOpenAppLaunchDelay,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setAppHighlightSize(String size) async {
+    await _sharedPreferences.setString(
+      _appHighlightSize,
+      appHighlightSizeOptions.contains(size) ? size : defaultAppHighlightSize,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setStatusBarGradient(String value) async {
+    await _sharedPreferences.setString(
+      _statusBarGradient,
+      statusBarGradientOptions.contains(value) ? value : defaultStatusBarGradient,
     );
     notifyListeners();
   }

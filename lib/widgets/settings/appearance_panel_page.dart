@@ -3,6 +3,7 @@ import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flauncher/widgets/settings/open_app_animation_page.dart';
+import 'package:flauncher/widgets/settings/open_app_delay_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -71,6 +72,14 @@ class AppearancePanelPage extends StatelessWidget {
                   title: Text(localizations.openAppAnimationStyle),
                   trailing: Text(openAppAnimationStyleLabel(localizations, settings.openAppAnimationStyle)),
                   onPressed: () => Navigator.of(context).pushNamed(OpenAppAnimationPage.routeName),
+                ),
+              ),
+              Consumer<SettingsService>(
+                builder: (context, settings, __) => FocusableSettingsTile(
+                  leading: const Icon(Icons.timer_outlined),
+                  title: Text(localizations.appOpenDelay),
+                  trailing: Text("${settings.openAppLaunchDelay} s"),
+                  onPressed: () => Navigator.of(context).pushNamed(OpenAppDelayPage.routeName),
                 ),
               ),
             ],

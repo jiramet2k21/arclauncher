@@ -965,6 +965,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Glow'**
   String get fontStyleGlow;
+
+  /// No description provided for @appOpenDelay.
+  ///
+  /// In en, this message translates to:
+  /// **'App start delay'**
+  String get appOpenDelay;
+
+  /// No description provided for @appHighlightSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight size'**
+  String get appHighlightSize;
+
+  /// No description provided for @highlightSizeSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get highlightSizeSmall;
+
+  /// No description provided for @highlightSizeMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get highlightSizeMedium;
+
+  /// No description provided for @highlightSizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get highlightSizeLarge;
+
+  /// No description provided for @statusBarGradient.
+  ///
+  /// In en, this message translates to:
+  /// **'Status bar gradient'**
+  String get statusBarGradient;
+
+  /// No description provided for @gradientOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get gradientOff;
+
+  /// No description provided for @gradientSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get gradientSmall;
+
+  /// No description provided for @gradientMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get gradientMedium;
+
+  /// No description provided for @gradientLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get gradientLarge;
 }
 
 class _AppLocalizationsDelegate

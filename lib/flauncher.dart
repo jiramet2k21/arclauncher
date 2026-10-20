@@ -101,6 +101,39 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
                 builder: (_, wallpaperService, __) => _wallpaper(context, wallpaperService),
               ),
             ),
+            // Dark scrim behind the status bar so its icons stay readable over
+            // bright wallpapers (off by default).
+            Selector<SettingsService, String>(
+              selector: (_, settings) => settings.statusBarGradient,
+              builder: (context, gradient, __) {
+                if (gradient == "off") return const SizedBox.shrink();
+                final height = switch (gradient) {
+                  "small" => 80.0,
+                  "medium" => 140.0,
+                  _ => 220.0,
+                };
+                return Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: height,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.55),
+                            Colors.black.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
             Selector3<LauncherState, SettingsService, WallpaperService, (bool, bool, bool)>(
               selector: (_, launcherState, settings, wallpaperService) => (
                 launcherState.appGridFocused,
@@ -186,13 +219,10 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     final showWatchNextSection = context.select<SettingsService, bool>((s) => s.showWatchNextSection);
     final watchNextVisible = context.select<WatchNextService, bool>((s) => s.hasVisibleSection);
     final reserveWatchNextSpace = showWatchNextSection && watchNextVisible;
-    final dockMagnification = context.select<SettingsService, bool>((s) => s.dockMagnificationEnabled);
 
     if (favoriteApps.isEmpty && otherSections.isEmpty) return _emptyState(context);
 
-    // The dock magnification adds slack inside the dock row; subtract it from
-    // the spacer above so the dock keeps the same on-screen position.
-    final dockSpacer = (reserveWatchNextSpace ? 410 : 150) - (dockMagnification ? kDockMagnificationSlack : 0);
+    final dockSpacer = (reserveWatchNextSpace ? 410 : 150);
 
     return CustomScrollView(
       controller: _scrollController,

@@ -438,4 +438,14 @@ class AppLocalizationsTr extends AppLocalizations {
   String get fontStyleSerif => 'Serif';
   String get fontStyleCondensed => 'Yoğun';
   String get fontStyleGlow => 'Parıltı';
+  String get appOpenDelay => 'App start delay';
+  String get appHighlightSize => 'Highlight size';
+  String get highlightSizeSmall => 'Small';
+  String get highlightSizeMedium => 'Medium';
+  String get highlightSizeLarge => 'Large';
+  String get statusBarGradient => 'Status bar gradient';
+  String get gradientOff => 'Off';
+  String get gradientSmall => 'Small';
+  String get gradientMedium => 'Medium';
+  String get gradientLarge => 'Large';
 }

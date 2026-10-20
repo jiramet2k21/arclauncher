@@ -26,17 +26,22 @@ import 'package:provider/provider.dart';
 import '../models/app.dart';
 import '../models/category.dart';
 
-/// Extra vertical room added to the dock row so the magnified card is not
-/// clipped by the dock's rounded container.
-const double kDockMagnificationSlack = 34.0;
+/// Fraction of a dock slot's width used by an icon box. The remainder becomes
+/// the dynamic gap that lets icons grow and shrink without overlapping.
+const double kDockIconWidthRatio = 0.75;
 
-/// macOS-style magnification curve: the focused card grows the most and the
-/// effect tapers off with the distance from it.
+/// Breathing room around the sliding highlight so its border stays visible
+/// next to the icon it surrounds.
+const double kDockHighlightPad = 6.0;
+
+/// macOS-style magnification curve: the focused icon grows the most, the
+/// effect tapers with distance, and distant icons shrink slightly so the
+/// focused one stands out.
 double dockMagnificationScale(int distance) {
-  if (distance <= 0) return 1.35;
-  if (distance == 1) return 1.18;
-  if (distance == 2) return 1.06;
-  return 1.0;
+  if (distance <= 0) return 1.25;
+  if (distance == 1) return 1.10;
+  if (distance == 2) return 1.00;
+  return 0.92;
 }
 
 class CategoryCleanRow extends StatefulWidget {
@@ -82,14 +87,25 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
       categoryContent = LayoutBuilder(
         builder: (context, constraints) {
           final slotWidth = constraints.maxWidth / Category.ColumnsCount;
+          // The dock box keeps a fixed height: icons grow and shrink inside
+          // their slots instead of stretching the container.
           final rowHeight = appCardRowExtentFromContentWidth(constraints.maxWidth) +
-              (showAppNames ? kAppNameLabelHeight : 0) +
-              (magnify ? kDockMagnificationSlack : 0);
+              (showAppNames ? kAppNameLabelHeight : 0);
+          final availWidth = slotWidth - kAppCardHorizontalPadding * 2;
+          final availHeight = rowHeight - kAppCardVerticalPadding * 2;
+          // Icon boxes keep the card aspect ratio so images are never cropped.
+          // With magnification off they simply fill the slot as before.
+          final iconWidth = magnify ? availWidth * kDockIconWidthRatio : availWidth;
+          final iconHeight = magnify ? iconWidth / kAppCardAspectRatio : availHeight;
           final highlightVisible =
               magnify && _focusedIndex >= 0 && _focusedIndex < widget.applications.length;
+          final focusedScale = dockMagnificationScale(0);
+          final highlightWidth = iconWidth * focusedScale + kDockHighlightPad * 2;
+          final highlightHeight = iconHeight * focusedScale + kDockHighlightPad * 2;
           return SizedBox(
             height: rowHeight,
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
                 // Shared focus highlight: the accent edge slides between slots
                 // instead of blinking per icon, staying behind the icons.
@@ -97,15 +113,14 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOutCubic,
-                    left: _focusedIndex * slotWidth + kAppCardHorizontalPadding,
-                    width: slotWidth - kAppCardHorizontalPadding * 2,
-                    top: kAppCardVerticalPadding,
-                    height: rowHeight - kAppCardVerticalPadding * 2,
+                    left: _focusedIndex * slotWidth + (slotWidth - highlightWidth) / 2,
+                    width: highlightWidth,
+                    bottom: kAppCardVerticalPadding - kDockHighlightPad,
+                    height: highlightHeight,
                     child: _DockHighlightBox(accentColor: accentColor),
                   ),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: List.generate(Category.ColumnsCount, (index) {
                     if (index < widget.applications.length) {
                       return Expanded(
@@ -115,28 +130,38 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                             horizontal: kAppCardHorizontalPadding,
                             vertical: kAppCardVerticalPadding,
                           ),
-                          child: AnimatedScale(
-                            scale: magnify ? _scaleFor(index) : 1.0,
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOutCubic,
-                            alignment: Alignment.center,
-                            child: AppCard(
-                              category: widget.category,
-                              application: widget.applications[index],
-                              autofocus: index == 0,
-                              handleUpNavigationToSettings: widget.isFirstSection,
-                              scrollAlignment: widget.scrollAlignment,
-                              enforceAspectRatio: false,
-                              disableInternalFocusScale: magnify,
-                              suppressInternalHighlight: magnify,
-                              onFocused: () {
-                                widget.onAppFocused?.call();
-                                if (_focusedIndex != index) {
-                                  setState(() => _focusedIndex = index);
-                                }
-                              },
-                              onMove: (direction) => _onMove(context, direction, index),
-                              onMoveEnd: () => _onMoveEnd(context),
+                          child: Center(
+                            child: SizedBox(
+                              width: iconWidth,
+                              height: iconHeight,
+                              child: AnimatedScale(
+                                // bottomCenter keeps the icon's bottom edge
+                                // fixed: it grows upward without triggering the
+                                // focus reveal-scroll, and the dock box never
+                                // changes size.
+                                scale: magnify ? _scaleFor(index) : 1.0,
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOutCubic,
+                                alignment: Alignment.bottomCenter,
+                                child: AppCard(
+                                  category: widget.category,
+                                  application: widget.applications[index],
+                                  autofocus: index == 0,
+                                  handleUpNavigationToSettings: widget.isFirstSection,
+                                  scrollAlignment: widget.scrollAlignment,
+                                  enforceAspectRatio: false,
+                                  disableInternalFocusScale: magnify,
+                                  suppressInternalHighlight: magnify,
+                                  onFocused: () {
+                                    widget.onAppFocused?.call();
+                                    if (_focusedIndex != index) {
+                                      setState(() => _focusedIndex = index);
+                                    }
+                                  },
+                                  onMove: (direction) => _onMove(context, direction, index),
+                                  onMoveEnd: () => _onMoveEnd(context),
+                                ),
+                              ),
                             ),
                           ),
                         ),

@@ -2,6 +2,8 @@
 import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/providers/watch_next_service.dart';
 import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
+import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
+import 'package:flauncher/widgets/settings/highlight_size_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flauncher/l10n/app_localizations.dart';
@@ -54,6 +56,14 @@ class MiscPanelPage extends StatelessWidget {
                 onChanged: (value) => settingsService.setShowFocusBorders(value),
                 title: Text(localizations.showFocusBorders, style: Theme.of(context).textTheme.bodyMedium),
                 secondary: Icon(Icons.border_outer),
+              ),
+              Consumer<SettingsService>(
+                builder: (context, settings, __) => FocusableSettingsTile(
+                  leading: const Icon(Icons.crop_free),
+                  title: Text(localizations.appHighlightSize),
+                  trailing: Text(_highlightSizeLabel(settings.appHighlightSize)),
+                  onPressed: () => Navigator.of(context).pushNamed(HighlightSizePage.routeName),
+                ),
               ),
               RoundedSwitchListTile(
                 value: settingsService.showWatchNextSection,
@@ -115,5 +125,17 @@ class MiscPanelPage extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _highlightSizeLabel(String size) {
+    switch (size) {
+      case "medium":
+        return "Medium";
+      case "large":
+        return "Large";
+      case "small":
+      default:
+        return "Small";
+    }
   }
 }

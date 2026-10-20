@@ -121,8 +121,6 @@ class MediaService extends ChangeNotifier {
 
   void _onSessionsChanged(List<Map<String, dynamic>> raw) {
     final sessions = raw.map(MediaSessionInfo.fromMap).toList();
-    debugPrint('MediaService: sessions=${sessions.length} '
-        'pkgs=${sessions.map((s) => s.packageName).toList()}');
     if (listEquals(sessions, _sessions)) return;
     _sessions = sessions;
     if (_selectedIndex >= _sessions.length) {

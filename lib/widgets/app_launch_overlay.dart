@@ -41,11 +41,6 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
     duration: const Duration(milliseconds: 380),
   );
 
-  /// Total time from the start of the open animation until the app is actually
-  /// launched. The animation itself is shorter and holds its final frame until
-  /// this elapses, so the activity transition never cuts it short.
-  static const Duration _launchAfter = Duration(milliseconds: 1000);
-
   @override
   void dispose() {
     _controller.dispose();
@@ -59,6 +54,10 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
     _running = true;
     try {
       final style = context.read<SettingsService>().openAppAnimationStyle;
+      // Total time from animation start until the app launches (1/2/3 s from
+      // settings). The animation is shorter and holds its final frame until it
+      // elapses, so the activity transition never cuts it short.
+      final launchDelay = Duration(seconds: context.read<SettingsService>().openAppLaunchDelay);
       Uint8List? bytes;
       double aspect = 1.0;
       try {
@@ -93,11 +92,11 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
       });
 
       _controller.reset();
-      // Start the launch timer CONCURRENTLY with the animation so the app
-      // opens when ~1s has elapsed since the animation started — not 1s after
-      // it finished. The animation holds its final frame until then, so the
-      // activity transition never cuts it short.
-      final launchTimer = Future.delayed(_launchAfter);
+      // Start the launch timer CONCURRENTLY with the animation so the app opens
+      // when the configured delay has elapsed since the animation started — not
+      // that long after it finished. The animation holds its final frame until
+      // then, so the activity transition never cuts it short.
+      final launchTimer = Future.delayed(launchDelay);
       await _controller.forward();
       await launchTimer;
 

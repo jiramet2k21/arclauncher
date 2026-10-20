@@ -22,6 +22,7 @@ import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
 import 'package:flauncher/widgets/settings/clock_font_page.dart';
 import 'package:flauncher/widgets/settings/clock_size_page.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
+import 'package:flauncher/widgets/settings/status_bar_gradient_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flauncher/l10n/app_localizations.dart';
@@ -80,6 +81,14 @@ class StatusBarPanelPage extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pushNamed(ClockFontPage.routeName),
                   ),
                 ),
+                Consumer<SettingsService>(
+                  builder: (context, settings, __) => FocusableSettingsTile(
+                    leading: Icon(Icons.gradient),
+                    title: Text(localizations.statusBarGradient),
+                    trailing: Text(_gradientLabel(settings.statusBarGradient)),
+                    onPressed: () => Navigator.of(context).pushNamed(StatusBarGradientPage.routeName),
+                  ),
+                ),
                 Divider(),
                 Consumer<SettingsService>(
                   builder: (context, settings, __) => RoundedSwitchListTile(
@@ -121,5 +130,19 @@ class StatusBarPanelPage extends StatelessWidget {
           ),
         ],
       );
+  }
+
+  String _gradientLabel(String value) {
+    switch (value) {
+      case "small":
+        return "Small";
+      case "medium":
+        return "Medium";
+      case "large":
+        return "Large";
+      case "off":
+      default:
+        return "Off";
+    }
   }
 }

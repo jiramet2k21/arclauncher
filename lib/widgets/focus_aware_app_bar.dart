@@ -148,27 +148,35 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                           : const SizedBox.shrink(),
                       ),
 
-                      // Date
-                      if (dateTimeSettings.showDateInStatusBar)
-                        DateTimeWidget(
-                          dateTimeSettings.dateFormat,
-                          key: const Key("statusbar_date"),
-                          updateInterval: const Duration(minutes: 1),
-                          textStyle: textStyle,
-                        ),
+                      // Date and clock share a baseline so their glyphs sit on one line.
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          // Date
+                          if (dateTimeSettings.showDateInStatusBar)
+                            DateTimeWidget(
+                              dateTimeSettings.dateFormat,
+                              key: const Key("statusbar_date"),
+                              updateInterval: const Duration(minutes: 1),
+                              textStyle: textStyle,
+                            ),
 
-                      if (dateTimeSettings.showDateInStatusBar && dateTimeSettings.showTimeInStatusBar)
-                          const SizedBox(width: 16),
+                          if (dateTimeSettings.showDateInStatusBar && dateTimeSettings.showTimeInStatusBar)
+                            const SizedBox(width: 16),
 
-                      // Clock — same size as the date, per the clock-size setting.
-                      if (dateTimeSettings.showTimeInStatusBar)
-                        DateTimeWidget(
-                          dateTimeSettings.timeFormat,
-                          key: const Key("statusbar_clock"),
-                          updateInterval: const Duration(minutes: 1),
-                          textStyle: textStyle.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                    ]
+                          // Clock — same size as the date, per the clock-size setting.
+                          if (dateTimeSettings.showTimeInStatusBar)
+                            DateTimeWidget(
+                              dateTimeSettings.timeFormat,
+                              key: const Key("statusbar_clock"),
+                              updateInterval: const Duration(minutes: 1),
+                              textStyle: textStyle.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                        ],
+                      ),
+                    ],
                   );
                 },
               ),
