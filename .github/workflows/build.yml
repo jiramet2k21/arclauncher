@@ -32,13 +32,17 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate signing keystore
+      - name: Generate signing keystore (fallback when not committed)
         run: |
-          keytool -genkeypair -v \
-            -keystore android/app/upload-keystore.jks \
-            -storepass android -alias arclauncher -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Arc Launcher, OU=Development, O=Development, L=City, S=State, C=US"
+          if [ -f android/app/upload-keystore.jks ]; then
+            echo "Using committed upload-keystore.jks (stable signature between builds)"
+          else
+            keytool -genkeypair -v \
+              -keystore android/app/upload-keystore.jks \
+              -storepass android -alias arclauncher -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Arc Launcher, OU=Development, O=Development, L=City, S=State, C=US"
+          fi
 
       - run: flutter pub get
 
