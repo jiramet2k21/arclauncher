@@ -130,5 +130,12 @@
     "mediaControls": "Medya kontrolleri",
     "grantMediaAccess": "Medya erişimi ver",
     "dockMagnification": "Dock büyütme",
-    "openAppAnimation": "Uygulama açılış animasyonu"
+    "openAppAnimation": "Uygulama açılış animasyonu",
+    "clockFont": "Saat yazı tipi",
+    "fontStyleDefault": "Varsayılan",
+    "fontStyleBold": "Kalın",
+    "fontStyleMonospace": "Eş aralıklı",
+    "fontStyleSerif": "Serif",
+    "fontStyleCondensed": "Yoğun",
+    "fontStyleGlow": "Parıltı"
 }

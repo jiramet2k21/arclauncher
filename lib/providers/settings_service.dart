@@ -50,6 +50,7 @@ const String _slideshowIntervalSeconds = "slideshow_interval_seconds";
 const String _slideshowFolderName = "slideshow_folder_name";
 const String _slideshowShuffle = "slideshow_shuffle";
 const String _clockSize = "clock_size";
+const String _clockFontStyle = "clock_font_style";
 const String _videoWallpaperBlurEnabled = "video_wallpaper_blur_enabled";
 const String _dockMagnificationEnabled = "dock_magnification_enabled";
 const String _showMediaControlsInStatusBar = "show_media_controls_in_status_bar";
@@ -57,8 +58,20 @@ const String _openAppAnimationEnabled = "open_app_animation_enabled";
 
 /// Status bar clock size steps (logical pixels). The date is rendered at the
 /// same size as the clock.
-const List<int> clockSizeOptions = <int>[28, 40, 56, 72];
+const List<int> clockSizeOptions = <int>[20, 28, 40, 54];
 const int defaultClockSize = 40;
+
+/// Status bar clock/date typeface + decorative styles. "default" keeps the
+/// platform sans-serif, "glow" adds an accent-coloured halo.
+const List<String> clockFontStyleOptions = <String>[
+  "default",
+  "bold",
+  "monospace",
+  "serif",
+  "condensed",
+  "glow",
+];
+const String defaultClockFontStyle = "default";
 
 // WiFi usage period options
 const String WIFI_USAGE_DAILY = "daily";
@@ -141,6 +154,13 @@ class SettingsService extends ChangeNotifier {
   int get clockSize {
     final value = _sharedPreferences.getInt(_clockSize) ?? defaultClockSize;
     return clockSizeOptions.contains(value) ? value : defaultClockSize;
+  }
+
+  /// Status bar clock/date typeface + decorative style.
+  String get clockFontStyle {
+    final value =
+        _sharedPreferences.getString(_clockFontStyle) ?? defaultClockFontStyle;
+    return clockFontStyleOptions.contains(value) ? value : defaultClockFontStyle;
   }
 
   /// Blur the dock while a video wallpaper plays. Off by default: the live
@@ -314,6 +334,14 @@ class SettingsService extends ChangeNotifier {
     await _sharedPreferences.setInt(
       _clockSize,
       clockSizeOptions.contains(size) ? size : defaultClockSize,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setClockFontStyle(String style) async {
+    await _sharedPreferences.setString(
+      _clockFontStyle,
+      clockFontStyleOptions.contains(style) ? style : defaultClockFontStyle,
     );
     notifyListeners();
   }

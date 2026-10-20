@@ -187,5 +187,12 @@
     "mediaControls": "Media controls",
     "grantMediaAccess": "Grant media access",
     "dockMagnification": "Dock magnification",
-    "openAppAnimation": "App open animation"
+    "openAppAnimation": "App open animation",
+    "clockFont": "Clock font",
+    "fontStyleDefault": "Default",
+    "fontStyleBold": "Bold",
+    "fontStyleMonospace": "Monospace",
+    "fontStyleSerif": "Serif",
+    "fontStyleCondensed": "Condensed",
+    "fontStyleGlow": "Glow"
 }

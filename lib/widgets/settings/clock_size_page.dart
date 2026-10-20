@@ -34,16 +34,16 @@ class ClockSizePage extends StatelessWidget {
     final isSelected = service.clockSize == size;
     String label;
     switch (size) {
-      case 28:
+      case 20:
         label = "Small";
         break;
-      case 56:
+      case 40:
         label = "Large";
         break;
-      case 72:
+      case 54:
         label = "Extra large";
         break;
-      case 40:
+      case 28:
       default:
         label = "Normal";
         break;

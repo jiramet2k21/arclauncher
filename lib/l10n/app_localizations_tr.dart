@@ -426,4 +426,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get openAppAnimation => 'Uygulama açılış animasyonu';
+  String get clockFont => 'Saat yazı tipi';
+  String get fontStyleDefault => 'Varsayılan';
+  String get fontStyleBold => 'Kalın';
+  String get fontStyleMonospace => 'Eş aralıklı';
+  String get fontStyleSerif => 'Serif';
+  String get fontStyleCondensed => 'Yoğun';
+  String get fontStyleGlow => 'Parıltı';
 }

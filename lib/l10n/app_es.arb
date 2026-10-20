@@ -187,5 +187,12 @@
     "mediaControls": "Controles multimedia",
     "grantMediaAccess": "Conceder acceso multimedia",
     "dockMagnification": "Ampliación del dock",
-    "openAppAnimation": "Animación al abrir apps"
+    "openAppAnimation": "Animación al abrir apps",
+    "clockFont": "Fuente del reloj",
+    "fontStyleDefault": "Predeterminada",
+    "fontStyleBold": "Negrita",
+    "fontStyleMonospace": "Monoespaciada",
+    "fontStyleSerif": "Serif",
+    "fontStyleCondensed": "Condensada",
+    "fontStyleGlow": "Brillo"
 }

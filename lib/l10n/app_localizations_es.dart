@@ -429,4 +429,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get openAppAnimation => 'Animación al abrir apps';
+  String get clockFont => 'Fuente del reloj';
+  String get fontStyleDefault => 'Predeterminada';
+  String get fontStyleBold => 'Negrita';
+  String get fontStyleMonospace => 'Monoespaciada';
+  String get fontStyleSerif => 'Serif';
+  String get fontStyleCondensed => 'Condensada';
+  String get fontStyleGlow => 'Brillo';
 }

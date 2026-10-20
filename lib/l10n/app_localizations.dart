@@ -891,6 +891,55 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'App open animation'**
   String get openAppAnimation;
+
+  /// No description provided for @clockFont.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Clock font'**
+  String get clockFont;
+
+  /// No description provided for @fontStyleDefault.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get fontStyleDefault;
+
+  /// No description provided for @fontStyleBold.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get fontStyleBold;
+
+  /// No description provided for @fontStyleMonospace.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Monospace'**
+  String get fontStyleMonospace;
+
+  /// No description provided for @fontStyleSerif.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Serif'**
+  String get fontStyleSerif;
+
+  /// No description provided for @fontStyleCondensed.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Condensed'**
+  String get fontStyleCondensed;
+
+  /// No description provided for @fontStyleGlow.
+  ///
+  /// In en, this message translates to:
+  /// In en, this message translates to:
+  /// **'Glow'**
+  String get fontStyleGlow;
 }
 
 class _AppLocalizationsDelegate

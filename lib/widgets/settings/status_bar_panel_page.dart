@@ -17,7 +17,9 @@
  */
 
 import 'package:flauncher/providers/media_service.dart';
+import 'package:flauncher/widgets/clock_text_style.dart';
 import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
+import 'package:flauncher/widgets/settings/clock_font_page.dart';
 import 'package:flauncher/widgets/settings/clock_size_page.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +70,14 @@ class StatusBarPanelPage extends StatelessWidget {
                     title: Text(localizations.clockSize),
                     trailing: Text("${settings.clockSize}"),
                     onPressed: () => Navigator.of(context).pushNamed(ClockSizePage.routeName),
+                  ),
+                ),
+                Consumer<SettingsService>(
+                  builder: (context, settings, __) => FocusableSettingsTile(
+                    leading: Icon(Icons.font_download_outlined),
+                    title: Text(localizations.clockFont),
+                    trailing: Text(clockFontStyleLabel(localizations, settings.clockFontStyle)),
+                    onPressed: () => Navigator.of(context).pushNamed(ClockFontPage.routeName),
                   ),
                 ),
                 Divider(),

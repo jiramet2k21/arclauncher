@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/launcher_state.dart';
 import '../providers/settings_service.dart';
+import 'clock_text_style.dart';
 import 'daily_wifi_usage_widget.dart';
 import 'date_time_widget.dart';
 import 'media_status_widget.dart';
@@ -115,22 +116,22 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                     bool showTimeInStatusBar,
                     String dateFormat,
                     String timeFormat,
-                    int clockSize })>(
+                    int clockSize,
+                    String clockFontStyle })>
                 selector: (context, service) => (
                 showDateInStatusBar: service.showDateInStatusBar,
                 showTimeInStatusBar: service.showTimeInStatusBar,
                 dateFormat: service.dateFormat,
                 timeFormat: service.timeFormat,
-                clockSize: service.clockSize),
+                clockSize: service.clockSize,
+                clockFontStyle: service.clockFontStyle),
                 builder: (context, dateTimeSettings, _) {
-                  // Define standard text style
-                  final textStyle = TextStyle(
-                    fontSize: dateTimeSettings.clockSize.toDouble(),
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(color: Colors.black54, offset: Offset(0, 2), blurRadius: 4)
-                    ],
+                  // Date and clock share one style (size + typeface); the clock
+                  // stays bold on top of it.
+                  final textStyle = clockTextStyle(
+                    context,
+                    dateTimeSettings.clockSize,
+                    dateTimeSettings.clockFontStyle,
                   );
 
                   return Row(
