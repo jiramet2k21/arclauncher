@@ -73,6 +73,7 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
   Widget build(BuildContext context) {
     final showAppNames = context.select<SettingsService, bool>((s) => s.showAppNamesBelowIcons);
     final magnify = context.select<SettingsService, bool>((s) => s.dockMagnificationEnabled);
+    final accentColor = context.select<SettingsService, Color>((s) => s.accentColor);
 
     Widget categoryContent;
     if (widget.applications.isEmpty) {
@@ -80,52 +81,72 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
     } else {
       categoryContent = LayoutBuilder(
         builder: (context, constraints) {
+          final slotWidth = constraints.maxWidth / Category.ColumnsCount;
           final rowHeight = appCardRowExtentFromContentWidth(constraints.maxWidth) +
               (showAppNames ? kAppNameLabelHeight : 0) +
               (magnify ? kDockMagnificationSlack : 0);
+          final highlightVisible =
+              magnify && _focusedIndex >= 0 && _focusedIndex < widget.applications.length;
           return SizedBox(
             height: rowHeight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: List.generate(Category.ColumnsCount, (index) {
-                if (index < widget.applications.length) {
-                  return Expanded(
-                    child: Padding(
-                      key: ValueKey(widget.applications[index].packageName),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: kAppCardHorizontalPadding,
-                        vertical: kAppCardVerticalPadding,
-                      ),
-                      child: AnimatedScale(
-                        scale: magnify ? _scaleFor(index) : 1.0,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.center,
-                        child: AppCard(
-                          category: widget.category,
-                          application: widget.applications[index],
-                          autofocus: index == 0,
-                          handleUpNavigationToSettings: widget.isFirstSection,
-                          scrollAlignment: widget.scrollAlignment,
-                          enforceAspectRatio: false,
-                          disableInternalFocusScale: magnify,
-                          onFocused: () {
-                            widget.onAppFocused?.call();
-                            if (_focusedIndex != index) {
-                              setState(() => _focusedIndex = index);
-                            }
-                          },
-                          onMove: (direction) => _onMove(context, direction, index),
-                          onMoveEnd: () => _onMoveEnd(context),
+            child: Stack(
+              children: [
+                // Shared focus highlight: the accent edge slides between slots
+                // instead of blinking per icon, staying behind the icons.
+                if (highlightVisible)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    left: _focusedIndex * slotWidth + kAppCardHorizontalPadding,
+                    width: slotWidth - kAppCardHorizontalPadding * 2,
+                    top: kAppCardVerticalPadding,
+                    height: rowHeight - kAppCardVerticalPadding * 2,
+                    child: _DockHighlightBox(accentColor: accentColor),
+                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: List.generate(Category.ColumnsCount, (index) {
+                    if (index < widget.applications.length) {
+                      return Expanded(
+                        child: Padding(
+                          key: ValueKey(widget.applications[index].packageName),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: kAppCardHorizontalPadding,
+                            vertical: kAppCardVerticalPadding,
+                          ),
+                          child: AnimatedScale(
+                            scale: magnify ? _scaleFor(index) : 1.0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.center,
+                            child: AppCard(
+                              category: widget.category,
+                              application: widget.applications[index],
+                              autofocus: index == 0,
+                              handleUpNavigationToSettings: widget.isFirstSection,
+                              scrollAlignment: widget.scrollAlignment,
+                              enforceAspectRatio: false,
+                              disableInternalFocusScale: magnify,
+                              suppressInternalHighlight: magnify,
+                              onFocused: () {
+                                widget.onAppFocused?.call();
+                                if (_focusedIndex != index) {
+                                  setState(() => _focusedIndex = index);
+                                }
+                              },
+                              onMove: (direction) => _onMove(context, direction, index),
+                              onMoveEnd: () => _onMoveEnd(context),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                } else {
-                  return const Expanded(child: SizedBox.shrink());
-                }
-              }),
+                      );
+                    } else {
+                      return const Expanded(child: SizedBox.shrink());
+                    }
+                  }),
+                ),
+              ],
             ),
           );
         },
@@ -165,5 +186,31 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
   void _onMoveEnd(BuildContext context) {
     final appsService = context.read<AppsService>();
     appsService.saveApplicationOrderInCategory(widget.category);
+  }
+}
+
+/// Accent edge + halo drawn behind the focused dock icon.
+class _DockHighlightBox extends StatelessWidget {
+  final Color accentColor;
+
+  const _DockHighlightBox({required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.35),
+              blurRadius: 16,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

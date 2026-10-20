@@ -424,6 +424,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openAppAnimation => 'App open animation';
+  String get animStyleFlip => 'Pase de p�gina';
+  String get openAppAnimationStyle => 'Estilo de animaci�n';
+  String get animStylePulse => 'Pulso';
+  String get animStyleCircle => 'C�rculo';
+  String get animStyleZoom => 'Zoom';
   String get clockFont => 'Clock font';
   String get fontStyleDefault => 'Default';
   String get fontStyleBold => 'Bold';

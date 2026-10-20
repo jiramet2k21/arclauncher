@@ -1,6 +1,8 @@
 import 'package:flauncher/l10n/app_localizations.dart';
 import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
+import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
+import 'package:flauncher/widgets/settings/open_app_animation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -61,6 +63,14 @@ class AppearancePanelPage extends StatelessWidget {
                   onChanged: settings.setOpenAppAnimationEnabled,
                   title: Text(localizations.openAppAnimation, style: Theme.of(context).textTheme.bodyMedium),
                   secondary: const Icon(Icons.open_in_full),
+                ),
+              ),
+              Consumer<SettingsService>(
+                builder: (context, settings, __) => FocusableSettingsTile(
+                  leading: const Icon(Icons.animation),
+                  title: Text(localizations.openAppAnimationStyle),
+                  trailing: Text(openAppAnimationStyleLabel(localizations, settings.openAppAnimationStyle)),
+                  onPressed: () => Navigator.of(context).pushNamed(OpenAppAnimationPage.routeName),
                 ),
               ),
             ],

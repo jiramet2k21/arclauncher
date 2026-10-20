@@ -891,6 +891,31 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'App open animation'**
   String get openAppAnimation;
+  /// No description provided for @animStyleFlip.
+  ///
+  /// In en, this message translates to:
+  /// **'Page flip'**
+  String get animStyleFlip;
+  /// No description provided for @openAppAnimationStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation style'**
+  String get openAppAnimationStyle;
+  /// No description provided for @animStylePulse.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse'**
+  String get animStylePulse;
+  /// No description provided for @animStyleCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle'**
+  String get animStyleCircle;
+  /// No description provided for @animStyleZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get animStyleZoom;
 
   /// No description provided for @clockFont.
   ///

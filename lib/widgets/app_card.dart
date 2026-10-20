@@ -66,6 +66,7 @@ class AppCard extends StatefulWidget {
   final bool ensureVisibleOnFocus;
   final bool onlyScrollWhenNearBottom;
   final bool disableInternalFocusScale;
+  final bool suppressInternalHighlight;
 
   const AppCard({
     super.key,
@@ -81,6 +82,7 @@ class AppCard extends StatefulWidget {
     this.ensureVisibleOnFocus = true,
     this.onlyScrollWhenNearBottom = false,
     this.disableInternalFocusScale = false,
+    this.suppressInternalHighlight = false,
   });
 
   @override
@@ -250,7 +252,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
                               ],
                             ),
                           ),
-                          if (shouldHighlight && showFocusBorders)
+                          if (shouldHighlight && showFocusBorders && !widget.suppressInternalHighlight)
                             if (animationEnabled)
                               IgnorePointer(
                                 child: RepaintBoundary(

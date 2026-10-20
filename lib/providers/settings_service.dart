@@ -55,6 +55,7 @@ const String _videoWallpaperBlurEnabled = "video_wallpaper_blur_enabled";
 const String _dockMagnificationEnabled = "dock_magnification_enabled";
 const String _showMediaControlsInStatusBar = "show_media_controls_in_status_bar";
 const String _openAppAnimationEnabled = "open_app_animation_enabled";
+const String _openAppAnimationStyle = "open_app_animation_style";
 
 /// Status bar clock size steps (logical pixels). The date is rendered at the
 /// same size as the clock.
@@ -72,6 +73,19 @@ const List<String> clockFontStyleOptions = <String>[
   "glow",
 ];
 const String defaultClockFontStyle = "default";
+
+/// "Open app" animation styles:
+/// - zoom:   icon grows while fading out (fast -> slow easing)
+/// - flip:   3D page flip, then the icon grows and fades
+/// - pulse:  icon swells then collapses
+/// - circle: a feathered black circle grows from the icon to fill the screen
+const List<String> openAppAnimationStyleOptions = <String>[
+  "zoom",
+  "flip",
+  "pulse",
+  "circle",
+];
+const String defaultOpenAppAnimationStyle = "zoom";
 
 // WiFi usage period options
 const String WIFI_USAGE_DAILY = "daily";
@@ -179,6 +193,15 @@ class SettingsService extends ChangeNotifier {
   /// Zoom animation when opening an app from the launcher.
   bool get openAppAnimationEnabled =>
       _sharedPreferences.getBool(_openAppAnimationEnabled) ?? true;
+
+  /// Selected "open app" animation style. Unknown values fall back to the
+  /// default so older installs keep working.
+  String get openAppAnimationStyle {
+    final value = _sharedPreferences.getString(_openAppAnimationStyle);
+    return (value != null && openAppAnimationStyleOptions.contains(value))
+        ? value
+        : defaultOpenAppAnimationStyle;
+  }
 
   Color get accentColor {
     final hex = accentColorHex;
@@ -360,5 +383,13 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> setOpenAppAnimationEnabled(bool value) async {
     return set(_openAppAnimationEnabled, value);
+  }
+
+  Future<void> setOpenAppAnimationStyle(String style) async {
+    await _sharedPreferences.setString(
+      _openAppAnimationStyle,
+      openAppAnimationStyleOptions.contains(style) ? style : defaultOpenAppAnimationStyle,
+    );
+    notifyListeners();
   }
 }
