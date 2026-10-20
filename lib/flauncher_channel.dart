@@ -18,6 +18,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class FLauncherChannel {
@@ -239,12 +240,16 @@ class FLauncherChannel {
     try {
       List<dynamic>? result = await _methodChannel.invokeListMethod('getActiveMediaSessions');
       if (result == null) return [];
-      return result
+      final mapped = result
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList();
-    } on PlatformException {
+      debugPrint('FLauncherChannel.getActiveMediaSessions: raw=${result.length}');
+      return mapped;
+    } on PlatformException catch (e) {
+      debugPrint('FLauncherChannel.getActiveMediaSessions PlatformException: $e');
       return [];
     } catch (e) {
+      debugPrint('FLauncherChannel.getActiveMediaSessions error: $e');
       return [];
     }
   }
