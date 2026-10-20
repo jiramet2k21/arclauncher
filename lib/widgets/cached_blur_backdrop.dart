@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/providers/wallpaper_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -58,6 +59,9 @@ class _CachedBlurLayerState extends _CachedBlurBackgroundState<CachedBlurLayer> 
     filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
     child: const SizedBox.expand(),
   );
+
+  @override
+  Widget buildBlurDisabled() => const SizedBox.shrink();
 }
 
 class CachedBlurBackdrop extends StatefulWidget {
@@ -75,6 +79,9 @@ class _CachedBlurBackdropState extends _CachedBlurBackgroundState<CachedBlurBack
   double get sigma => widget.sigma;
 
   @override
+  FilterQuality get blitQuality => FilterQuality.medium;
+
+  @override
   Widget buildBlurContent(Widget blurBackground) {
     return Stack(
       fit: StackFit.passthrough,
@@ -87,6 +94,9 @@ class _CachedBlurBackdropState extends _CachedBlurBackgroundState<CachedBlurBack
     filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
     child: widget.child,
   );
+
+  @override
+  Widget buildBlurDisabled() => widget.child;
 }
 
 abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends State<T> {
@@ -105,9 +115,29 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
 
   double get sigma;
 
+  /// Upscale quality of the pre-blurred snapshot when it is blitted. The
+  /// full-screen layer uses cheap bilinear sampling; the small dock blit can
+  /// afford a filtered upscale.
+  FilterQuality get blitQuality => FilterQuality.low;
+
   Widget buildBlurContent(Widget blurBackground);
 
   Widget buildLiveBlur();
+
+  /// Rendered instead of a blur when blurring is switched off (video
+  /// wallpaper with the blur-over-video toggle disabled).
+  Widget buildBlurDisabled();
+
+  /// The image the snapshot should be blurred: the current slideshow slide
+  /// while a slideshow runs (the regular `wallpaper` provider is null then),
+  /// otherwise the static wallpaper.
+  ImageProvider? blurSource(WallpaperService service) {
+    if (service.slideshowActive) {
+      final slide = service.currentSlideshowFile;
+      return slide != null ? FileImage(slide) : null;
+    }
+    return service.wallpaper;
+  }
 
   Future<void> _build(WallpaperService service, Size size, double dpr) async {
     if (_building) return;
@@ -122,10 +152,18 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
       final pxHeight = math.max(1, (size.height * dpr * snapshotScale).round());
       final rect = Rect.fromLTWH(0, 0, pxWidth.toDouble(), pxHeight.toDouble());
 
+      final provider = blurSource(service);
       ui.Image? source;
-      final provider = service.wallpaper;
       if (provider != null) {
-        source = await _resolveImage(provider);
+        // Cap the decode to the screen size: the raw FileImage resolves at
+        // full photo resolution (a 12MP photo decodes to ~46MB) even though
+        // the snapshot is only a quarter of that.
+        final capped = ResizeImage(
+          provider,
+          height: (size.height * dpr).round(),
+          allowUpscaling: false,
+        );
+        source = await _resolveImage(capped);
       }
 
       final recorder = ui.PictureRecorder();
@@ -186,16 +224,23 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
   @override
   Widget build(BuildContext context) {
     final service = context.watch<WallpaperService>();
-    // Video wallpapers are not static: keep the live blur.
-    if (service.wallpaperVideoFile != null) {
-      return buildLiveBlur();
+    final settings = context.watch<SettingsService>();
+    final videoFile = service.wallpaperVideoFile;
+    if (videoFile != null) {
+      // Video wallpapers are not static. The live per-frame blur is very
+      // expensive on this GPU and made playback choppy, so it is only used
+      // when explicitly enabled; otherwise the content shows unblurred.
+      return settings.videoWallpaperBlurEnabled
+          ? buildLiveBlur()
+          : buildBlurDisabled();
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final screen = MediaQuery.sizeOf(context);
         final dpr = MediaQuery.devicePixelRatioOf(context);
-        final gradientId = service.wallpaper == null ? service.gradient.uuid : null;
+        final provider = blurSource(service);
+        final gradientId = provider == null ? service.gradient.uuid : null;
         final stale =
             _blurred == null ||
             _builtSize != screen ||
@@ -212,7 +257,7 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
           // Snapshot not ready: fall back to the live blur for correctness.
           return buildLiveBlur();
         }
-        return buildBlurContent(_BlurBlit(image: image, screenSize: screen));
+        return buildBlurContent(_BlurBlit(image: image, screenSize: screen, filterQuality: blitQuality));
       },
     );
   }
@@ -224,25 +269,28 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
 class _BlurBlit extends LeafRenderObjectWidget {
   final ui.Image image;
   final Size screenSize;
+  final FilterQuality filterQuality;
 
-  const _BlurBlit({required this.image, required this.screenSize});
+  const _BlurBlit({required this.image, required this.screenSize, this.filterQuality = FilterQuality.low});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _BlurBlitRender(image, screenSize);
+  RenderObject createRenderObject(BuildContext context) => _BlurBlitRender(image, screenSize, filterQuality);
 
   @override
   void updateRenderObject(BuildContext context, _BlurBlitRender renderObject) {
     renderObject
       ..image = image
-      ..screenSize = screenSize;
+      ..screenSize = screenSize
+      ..filterQuality = filterQuality;
   }
 }
 
 class _BlurBlitRender extends RenderBox {
   ui.Image _image;
   Size _screenSize;
+  FilterQuality _filterQuality;
 
-  _BlurBlitRender(this._image, this._screenSize);
+  _BlurBlitRender(this._image, this._screenSize, this._filterQuality);
 
   set image(ui.Image value) {
     if (value != _image) {
@@ -254,6 +302,13 @@ class _BlurBlitRender extends RenderBox {
   set screenSize(Size value) {
     if (value != _screenSize) {
       _screenSize = value;
+      markNeedsPaint();
+    }
+  }
+
+  set filterQuality(FilterQuality value) {
+    if (value != _filterQuality) {
+      _filterQuality = value;
       markNeedsPaint();
     }
   }
@@ -273,6 +328,6 @@ class _BlurBlitRender extends RenderBox {
     final screenPos = localToGlobal(Offset.zero);
     final src = Rect.fromLTWH(screenPos.dx * scaleX, screenPos.dy * scaleY, size.width * scaleX, size.height * scaleY);
     final dst = offset & size;
-    context.canvas.drawImageRect(_image, src, dst, Paint()..filterQuality = FilterQuality.medium);
+    context.canvas.drawImageRect(_image, src, dst, Paint()..filterQuality = _filterQuality);
   }
 }

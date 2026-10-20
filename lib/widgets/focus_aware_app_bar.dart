@@ -6,6 +6,7 @@ import '../providers/launcher_state.dart';
 import '../providers/settings_service.dart';
 import 'daily_wifi_usage_widget.dart';
 import 'date_time_widget.dart';
+import 'media_status_widget.dart';
 import 'network_widget.dart';
 
 class FocusAwareAppBar extends StatefulWidget implements PreferredSizeWidget
@@ -113,16 +114,18 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                     bool showDateInStatusBar,
                     bool showTimeInStatusBar,
                     String dateFormat,
-                    String timeFormat })>(
+                    String timeFormat,
+                    int clockSize })>(
                 selector: (context, service) => (
                 showDateInStatusBar: service.showDateInStatusBar,
                 showTimeInStatusBar: service.showTimeInStatusBar,
                 dateFormat: service.dateFormat,
-                timeFormat: service.timeFormat),
+                timeFormat: service.timeFormat,
+                clockSize: service.clockSize),
                 builder: (context, dateTimeSettings, _) {
                   // Define standard text style
-                  const textStyle = TextStyle(
-                    fontSize: 20,
+                  final textStyle = TextStyle(
+                    fontSize: dateTimeSettings.clockSize.toDouble(),
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                     shadows: [
@@ -133,6 +136,17 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Media controls (now playing) — only when something is active
+                      Selector<SettingsService, bool>(
+                        selector: (_, settings) => settings.showMediaControlsInStatusBar,
+                        builder: (context, showMedia, _) => showMedia
+                          ? const Padding(
+                              padding: EdgeInsets.only(right: 16),
+                              child: MediaStatusWidget(),
+                            )
+                          : const SizedBox.shrink(),
+                      ),
+
                       // Date
                       if (dateTimeSettings.showDateInStatusBar)
                         DateTimeWidget(
@@ -141,21 +155,17 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                           updateInterval: const Duration(minutes: 1),
                           textStyle: textStyle,
                         ),
-                      
+
                       if (dateTimeSettings.showDateInStatusBar && dateTimeSettings.showTimeInStatusBar)
                           const SizedBox(width: 16),
 
-                      // Clock
+                      // Clock — same size as the date, per the clock-size setting.
                       if (dateTimeSettings.showTimeInStatusBar)
                         DateTimeWidget(
                           dateTimeSettings.timeFormat,
                           key: const Key("statusbar_clock"),
                           updateInterval: const Duration(minutes: 1),
-                          textStyle: textStyle.copyWith(
-                            fontWeight: FontWeight.bold,
-                            // Large (2x) clock in the status bar; date keeps the standard size.
-                            fontSize: textStyle.fontSize! * 2,
-                          ),
+                          textStyle: textStyle.copyWith(fontWeight: FontWeight.bold),
                         ),
                     ]
                   );

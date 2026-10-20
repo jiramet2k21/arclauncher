@@ -16,7 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import 'package:flauncher/providers/media_service.dart';
 import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
+import 'package:flauncher/widgets/settings/clock_size_page.dart';
+import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flauncher/l10n/app_localizations.dart';
@@ -58,6 +61,38 @@ class StatusBarPanelPage extends StatelessWidget {
                   onChanged: (value) => settingsService.setShowTimeInStatusBar(value),
                   title: Text(localizations.time),
                   secondary: Icon(Icons.watch_later_outlined)
+                ),
+                Consumer<SettingsService>(
+                  builder: (context, settings, __) => FocusableSettingsTile(
+                    leading: Icon(Icons.format_size),
+                    title: Text(localizations.clockSize),
+                    trailing: Text("${settings.clockSize}"),
+                    onPressed: () => Navigator.of(context).pushNamed(ClockSizePage.routeName),
+                  ),
+                ),
+                Divider(),
+                Consumer<SettingsService>(
+                  builder: (context, settings, __) => RoundedSwitchListTile(
+                    value: settings.showMediaControlsInStatusBar,
+                    onChanged: (value) => settings.setShowMediaControlsInStatusBar(value),
+                    title: Text(localizations.mediaControls, style: Theme.of(context).textTheme.bodyMedium),
+                    secondary: Icon(Icons.music_note_outlined),
+                  ),
+                ),
+                // Shown only while notification access is missing — media
+                // controls silently do nothing without it.
+                Consumer<MediaService>(
+                  builder: (context, mediaService, __) => mediaService.listenerEnabled
+                    ? const SizedBox.shrink()
+                    : FocusableSettingsTile(
+                        leading: const Icon(Icons.lock_open),
+                        title: Text(localizations.grantMediaAccess),
+                        onPressed: () async {
+                          await mediaService.openListenerSettings();
+                          await Future.delayed(const Duration(milliseconds: 300));
+                          await mediaService.refresh();
+                        },
+                      ),
                 ),
                 RoundedSwitchListTile(
                   value: settingsService.showWifiWidgetInStatusBar,

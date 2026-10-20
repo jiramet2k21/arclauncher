@@ -178,5 +178,14 @@
     "weekly": "Semanal",
     "monthly": "Mensual",
     "grantPermission": "Conceder permiso",
-    "checkStatus": "Comprobar estado"
+    "checkStatus": "Comprobar estado",
+    "slideshowMode": "Modo de presentación",
+    "slideshowModeShuffle": "Aleatorio (sin repeticiones)",
+    "slideshowModeSequential": "Secuencial (orden de carpeta)",
+    "videoWallpaperBlur": "Desenfoque sobre vídeo",
+    "clockSize": "Tamaño del reloj",
+    "mediaControls": "Controles multimedia",
+    "grantMediaAccess": "Conceder acceso multimedia",
+    "dockMagnification": "Ampliación del dock",
+    "openAppAnimation": "Animación al abrir apps"
 }

@@ -399,4 +399,31 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get checkStatus => 'Durumu denetle';
+
+  @override
+  String get slideshowMode => 'Slayt gösterisi modu';
+
+  @override
+  String get slideshowModeShuffle => 'Karışık (tekrar yok)';
+
+  @override
+  String get slideshowModeSequential => 'Sıralı (klasör sırası)';
+
+  @override
+  String get videoWallpaperBlur => 'Video üzerinde bulanıklık';
+
+  @override
+  String get clockSize => 'Saat boyutu';
+
+  @override
+  String get mediaControls => 'Medya kontrolleri';
+
+  @override
+  String get grantMediaAccess => 'Medya erişimi ver';
+
+  @override
+  String get dockMagnification => 'Dock büyütme';
+
+  @override
+  String get openAppAnimation => 'Uygulama açılış animasyonu';
 }

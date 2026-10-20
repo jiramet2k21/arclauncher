@@ -121,5 +121,14 @@
     "weekly": "Haftalık",
     "monthly": "Aylık",
     "grantPermission": "İzin ver",
-    "checkStatus": "Durumu denetle"
+    "checkStatus": "Durumu denetle",
+    "slideshowMode": "Slayt gösterisi modu",
+    "slideshowModeShuffle": "Karışık (tekrar yok)",
+    "slideshowModeSequential": "Sıralı (klasör sırası)",
+    "videoWallpaperBlur": "Video üzerinde bulanıklık",
+    "clockSize": "Saat boyutu",
+    "mediaControls": "Medya kontrolleri",
+    "grantMediaAccess": "Medya erişimi ver",
+    "dockMagnification": "Dock büyütme",
+    "openAppAnimation": "Uygulama açılış animasyonu"
 }

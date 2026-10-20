@@ -77,6 +77,7 @@ public class MainActivity extends FlutterActivity {
     private final String METHOD_CHANNEL = "me.efesser.flauncher/method";
     private final String APPS_EVENT_CHANNEL = "me.efesser.flauncher/event_apps";
     private final String NETWORK_EVENT_CHANNEL = "me.efesser.flauncher/event_network";
+    private final String MEDIA_EVENT_CHANNEL = "me.efesser.flauncher/event_media";
     private static final String PERMISSION_READ_TV_LISTINGS = "android.permission.READ_TV_LISTINGS";
     private static final int REQUEST_CODE_READ_TV_LISTINGS = 1001;
     private static final String COLUMN_ASPECT_RATIO = "aspect_ratio";
@@ -157,12 +158,30 @@ public class MainActivity extends FlutterActivity {
                     result.success(getMediaStoreVideoThumbnail(
                         id != null ? id.longValue() : -1, path));
                 }
+                case "getMediaStoreImageThumbnail" -> {
+                    String contentUri = (String) call.arguments();
+                    if (contentUri != null) {
+                        mediaIoExecutor.execute(() -> {
+                            byte[] bytes = getMediaStoreImageThumbnail(contentUri);
+                            result.success(bytes);
+                        });
+                    } else {
+                        result.success(new byte[0]);
+                    }
+                }
                 case "checkMediaPermissions" -> result.success(checkMediaPermissions());
                 case "requestMediaPermissions" -> {
                     requestMediaPermissions();
                     result.success(null);
                 }
-                case "loadContentUriVideoBytes" -> result.success(loadContentUriVideoBytes((String) call.arguments()));
+                case "loadContentUriVideoBytes" -> {
+                    String videoUri = (String) call.arguments();
+                    if (videoUri != null) {
+                        mediaIoExecutor.execute(() -> result.success(loadContentUriVideoBytes(videoUri)));
+                    } else {
+                        result.success(new byte[0]);
+                    }
+                }
                 case "checkWatchNextPermission" -> result.success(checkWatchNextPermission());
                 case "requestWatchNextPermission" -> {
                     requestWatchNextPermission();
@@ -187,10 +206,23 @@ public class MainActivity extends FlutterActivity {
                 case "loadContentUriImage" -> {
                     String contentUri = (String) call.arguments();
                     if (contentUri != null) {
-                        result.success(loadContentUriImage(contentUri));
+                        mediaIoExecutor.execute(() -> result.success(loadContentUriImage(contentUri)));
                     } else {
                         result.success(new byte[0]);
                     }
+                }
+                case "getActiveMediaSessions" -> result.success(MediaSessionListenerService.getCurrentSessions());
+                case "mediaTransport" -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> args = (Map<String, Object>) call.arguments();
+                    String packageName = args != null ? (String) args.get("packageName") : null;
+                    String action = args != null ? (String) args.get("action") : null;
+                    result.success(MediaSessionListenerService.transportControl(getApplicationContext(), packageName, action));
+                }
+                case "isNotificationListenerEnabled" -> result.success(MediaSessionListenerService.isListenerEnabled(getApplicationContext()));
+                case "openNotificationListenerSettings" -> {
+                    MediaSessionListenerService.openListenerSettings(getApplicationContext());
+                    result.success(null);
                 }
                 default -> throw new IllegalArgumentException("Unknown method: " + call.method);
             }
@@ -202,8 +234,42 @@ public class MainActivity extends FlutterActivity {
         new EventChannel(messenger, NETWORK_EVENT_CHANNEL).setStreamHandler(
                 new NetworkEventStreamHandler(this));
 
+        new EventChannel(messenger, MEDIA_EVENT_CHANNEL).setStreamHandler(
+                new MediaEventStreamHandler(this));
+
         flutterEngine.getPlatformViewsController().getRegistry()
                 .registerViewFactory("video_wallpaper_view", new VideoWallpaperViewFactory());
+    }
+
+    /** Streams the list of active media sessions (now-playing info) to Dart. */
+    private static class MediaEventStreamHandler implements EventChannel.StreamHandler {
+        private final MainActivity activity;
+        private EventChannel.EventSink sink;
+
+        MediaEventStreamHandler(MainActivity activity) {
+            this.activity = activity;
+        }
+
+        private final MediaSessionListenerService.Callback callback =
+                sessions -> activity.runOnUiThread(() -> {
+                    if (sink != null) {
+                        sink.success(sessions);
+                    }
+                });
+
+        @Override
+        public void onListen(Object arguments, EventChannel.EventSink eventSink) {
+            sink = eventSink;
+            MediaSessionListenerService.addCallback(callback);
+            // Push the current state immediately so Dart never starts empty.
+            callback.onActiveSessionsChanged(MediaSessionListenerService.getCurrentSessions());
+        }
+
+        @Override
+        public void onCancel(Object arguments) {
+            MediaSessionListenerService.removeCallback(callback);
+            sink = null;
+        }
     }
 
     @Override
@@ -966,6 +1032,11 @@ public class MainActivity extends FlutterActivity {
                     byte[] buffer = new byte[8192];  // Increased buffer size
                     int length;
                     while ((length = inputStream.read(buffer)) != -1) {
+                        if (byteArrayOutputStream.size() + length > MAX_CONTENT_IMAGE_BYTES) {
+                            android.util.Log.w("MainActivity", "Content URI image exceeds "
+                                    + MAX_CONTENT_IMAGE_BYTES + " byte cap, rejecting: " + contentUri);
+                            return new byte[0];
+                        }
                         byteArrayOutputStream.write(buffer, 0, length);
                     }
                     byte[] result = byteArrayOutputStream.toByteArray();
@@ -1013,6 +1084,99 @@ public class MainActivity extends FlutterActivity {
     }
 
     private static final int MEDIA_PERMISSION_REQUEST_CODE = 9001;
+
+    /**
+     * Background pool for media IO (wallpaper copies, full-res image loads,
+     * thumbnail generation) so the platform thread is never blocked.
+     */
+    private final java.util.concurrent.ExecutorService mediaIoExecutor =
+            java.util.concurrent.Executors.newFixedThreadPool(4);
+
+    /**
+     * Maximum accepted size for a full-resolution image read through a
+     * content:// URI (wallpaper pick). Guards against multi-hundred-MB
+     * sources blowing up the Java heap.
+     */
+    private static final int MAX_CONTENT_IMAGE_BYTES = 20 * 1024 * 1024;
+
+    /**
+     * Generate a small thumbnail (JPEG bytes) for a MediaStore image
+     * content:// URI. Used by the wallpaper picker grid: decoding full
+     * resolution photos as grid tiles OOMs the launcher process (and the
+     * persistent HOME process dying reboots the TV).
+     *
+     * Prefers ContentResolver.loadThumbnail (MediaStore may have a cached
+     * thumbnail), falling back to a sampled BitmapFactory decode.
+     */
+    private byte[] getMediaStoreImageThumbnail(String contentUri) {
+        if (contentUri == null) {
+            return new byte[0];
+        }
+        try {
+            android.net.Uri uri = android.net.Uri.parse(contentUri);
+            android.graphics.Bitmap bitmap = null;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    bitmap = getContentResolver().loadThumbnail(uri, new android.util.Size(512, 512), null);
+                } catch (Exception e) {
+                    android.util.Log.w("MainActivity", "loadThumbnail failed, falling back to sampled decode: " + e.getMessage());
+                }
+            }
+            if (bitmap == null) {
+                bitmap = decodeSampledBitmapFromUri(uri, 512);
+            }
+            if (bitmap == null) {
+                android.util.Log.w("MainActivity", "No thumbnail decoded for: " + contentUri);
+                return new byte[0];
+            }
+
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out);
+            bitmap.recycle();
+            return out.toByteArray();
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error generating image thumbnail for: " + contentUri, e);
+            return new byte[0];
+        }
+    }
+
+    private android.graphics.Bitmap decodeSampledBitmapFromUri(android.net.Uri uri, int maxSize) {
+        try (java.io.InputStream boundsStream = getContentResolver().openInputStream(uri)) {
+            if (boundsStream == null) {
+                return null;
+            }
+            android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeStream(boundsStream, null, options);
+            options.inSampleSize = calculateInSampleSize(options, maxSize, maxSize);
+            options.inJustDecodeBounds = false;
+            options.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;
+            try (java.io.InputStream decodeStream = getContentResolver().openInputStream(uri)) {
+                if (decodeStream == null) {
+                    return null;
+                }
+                return android.graphics.BitmapFactory.decodeStream(decodeStream, null, options);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("MainActivity", "Sampled decode failed for " + uri + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    private int calculateInSampleSize(android.graphics.BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+        if (height > reqHeight || width > reqWidth) {
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+        return inSampleSize;
+    }
 
     private boolean checkMediaPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

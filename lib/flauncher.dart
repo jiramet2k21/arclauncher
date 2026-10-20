@@ -28,6 +28,7 @@ import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/providers/wallpaper_service.dart';
 import 'package:flauncher/providers/watch_next_service.dart';
 import 'package:flauncher/widgets/app_card.dart';
+import 'package:flauncher/widgets/app_launch_overlay.dart';
 import 'package:flauncher/widgets/cached_blur_backdrop.dart';
 import 'package:flauncher/widgets/category_clean_row.dart';
 import 'package:flauncher/widgets/category_row.dart';
@@ -92,61 +93,69 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     },
     child: FocusTraversalGroup(
       policy: RowByRowTraversalPolicy(),
-      child: Stack(
-        children: [
-          RepaintBoundary(
-            child: Consumer<WallpaperService>(
-              builder: (_, wallpaperService, __) => _wallpaper(context, wallpaperService),
-            ),
-          ),
-          Selector3<LauncherState, SettingsService, WallpaperService, (bool, bool, bool)>(
-            selector: (_, launcherState, settings, wallpaperService) => (
-              launcherState.appGridFocused,
-              settings.backgroundBlurDisabled,
-              wallpaperService.wallpaperVideoFile != null || wallpaperService.slideshowActive,
-            ),
-            builder: (_, data, __) {
-              final (appGridFocused, blurDisabled, hasVideoWallpaper) = data;
-              if (hasVideoWallpaper) {
-                return const SizedBox.shrink();
-              }
-              return Positioned.fill(
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: appGridFocused && !blurDisabled ? 1 : 0,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: const CachedBlurLayer(sigma: 10),
-                  ),
-                ),
-              );
-            },
-          ),
-          Consumer<LauncherState>(
-            builder:
-                (_, state, child) => Visibility(
-                  replacement: const Center(child: AlternativeLauncherView()),
-                  visible: state.launcherVisible,
-                  child: child!,
-                ),
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              appBar: FocusAwareAppBar(key: _appBarKey),
-              // (initialized (data.$1), layoutVersion (data.$2), showAppNamesBelowIcons (data.$3))
-              body: Selector2<AppsService, SettingsService, (bool, int, bool)>(
-                selector: (_, appsService, settingsService) =>
-                    (appsService.initialized, appsService.layoutVersion, settingsService.showAppNamesBelowIcons),
-                builder: (context, data, _) {
-                  if (data.$1) {
-                    return _tvOSLayout(context, context.read<AppsService>(), showAppNames: data.$3);
-                  } else {
-                    return _emptyState(context);
-                  }
-                },
+      child: AppLaunchOverlayHost(
+        child: Stack(
+          children: [
+            RepaintBoundary(
+              child: Consumer<WallpaperService>(
+                builder: (_, wallpaperService, __) => _wallpaper(context, wallpaperService),
               ),
             ),
-          ),
-        ],
+            Selector3<LauncherState, SettingsService, WallpaperService, (bool, bool, bool)>(
+              selector: (_, launcherState, settings, wallpaperService) => (
+                launcherState.appGridFocused,
+                settings.backgroundBlurDisabled,
+                // Hide the layer only when a video wallpaper is playing without
+                // blur-over-video. The blur also works during a slideshow now:
+                // the snapshot sources the current slide.
+                wallpaperService.wallpaperVideoFile != null &&
+                    !settings.videoWallpaperBlurEnabled,
+              ),
+              builder: (_, data, __) {
+                final (appGridFocused, blurDisabled, blurHidden) = data;
+                if (blurHidden) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: appGridFocused && !blurDisabled ? 1 : 0,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      child: const CachedBlurLayer(sigma: 10),
+                    ),
+                  ),
+                );
+              },
+            ),
+            Consumer<LauncherState>(
+              builder:
+                  (_, state, child) => Visibility(
+                    replacement: const Center(child: AlternativeLauncherView()),
+                    visible: state.launcherVisible,
+                    child: child!,
+                  ),
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: FocusAwareAppBar(key: _appBarKey),
+                // NOTE: layoutVersion is deliberately not part of this selector
+                // — it bumps on every AppsService notification and rebuilding the
+                // whole scroll view each time made the UI feel slow.
+                body: Selector2<AppsService, SettingsService, (bool, bool)>(
+                  selector: (_, appsService, settingsService) =>
+                      (appsService.initialized, settingsService.showAppNamesBelowIcons),
+                  builder: (context, data, _) {
+                    if (data.$1) {
+                      return _tvOSLayout(context, context.read<AppsService>(), showAppNames: data.$2);
+                    } else {
+                      return _emptyState(context);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -177,8 +186,13 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     final showWatchNextSection = context.select<SettingsService, bool>((s) => s.showWatchNextSection);
     final watchNextVisible = context.select<WatchNextService, bool>((s) => s.hasVisibleSection);
     final reserveWatchNextSpace = showWatchNextSection && watchNextVisible;
+    final dockMagnification = context.select<SettingsService, bool>((s) => s.dockMagnificationEnabled);
 
     if (favoriteApps.isEmpty && otherSections.isEmpty) return _emptyState(context);
+
+    // The dock magnification adds slack inside the dock row; subtract it from
+    // the spacer above so the dock keeps the same on-screen position.
+    final dockSpacer = (reserveWatchNextSpace ? 410 : 150) - (dockMagnification ? kDockMagnificationSlack : 0);
 
     return CustomScrollView(
       controller: _scrollController,
@@ -190,7 +204,7 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
                   MediaQuery.of(context).size.height -
                   MediaQuery.of(context).padding.top -
                   kToolbarHeight -
-                  (reserveWatchNextSpace ? 410 : 150),
+                  dockSpacer,
             ),
           ),
           if (showWatchNextSection)
@@ -207,12 +221,14 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
                 key: _dockKey,
                 child: Padding(
                   padding: _kDockOuterPadding,
-                  child: _dock(
-                    context,
-                    favoritesCategory!,
-                    favoriteApps,
-                    appsService,
-                    handleUpNavigationToSettings: !reserveWatchNextSpace,
+                  child: RepaintBoundary(
+                    child: _dock(
+                      context,
+                      favoritesCategory!,
+                      favoriteApps,
+                      appsService,
+                      handleUpNavigationToSettings: !reserveWatchNextSpace,
+                    ),
                   ),
                 ),
               ),

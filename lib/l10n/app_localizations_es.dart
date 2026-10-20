@@ -402,4 +402,31 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get checkStatus => 'Comprobar estado';
+
+  @override
+  String get slideshowMode => 'Modo de presentación';
+
+  @override
+  String get slideshowModeShuffle => 'Aleatorio (sin repeticiones)';
+
+  @override
+  String get slideshowModeSequential => 'Secuencial (orden de carpeta)';
+
+  @override
+  String get videoWallpaperBlur => 'Desenfoque sobre vídeo';
+
+  @override
+  String get clockSize => 'Tamaño del reloj';
+
+  @override
+  String get mediaControls => 'Controles multimedia';
+
+  @override
+  String get grantMediaAccess => 'Conceder acceso multimedia';
+
+  @override
+  String get dockMagnification => 'Ampliación del dock';
+
+  @override
+  String get openAppAnimation => 'Animación al abrir apps';
 }

@@ -3,8 +3,26 @@ import 'package:flauncher/providers/settings_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class DailyWifiUsageWidget extends StatelessWidget {
+class DailyWifiUsageWidget extends StatefulWidget {
   const DailyWifiUsageWidget({super.key});
+
+  @override
+  State<DailyWifiUsageWidget> createState() => _DailyWifiUsageWidgetState();
+}
+
+class _DailyWifiUsageWidgetState extends State<DailyWifiUsageWidget> {
+  String _period = "daily";
+  Future<int>? _usageFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final period = context.read<SettingsService>().wifiUsagePeriod;
+    if (period != _period || _usageFuture == null) {
+      _period = period;
+      _usageFuture = context.read<NetworkService>().getWifiUsageForPeriod(period);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +36,12 @@ class DailyWifiUsageWidget extends StatelessWidget {
           );
         }
 
-        final period = settingsService.wifiUsagePeriod;
+        if (settingsService.wifiUsagePeriod != _period) {
+          _period = settingsService.wifiUsagePeriod;
+          _usageFuture = networkService.getWifiUsageForPeriod(_period);
+        }
+
+        final period = _period;
         String label;
         switch (period) {
           case 'weekly':
@@ -34,7 +57,7 @@ class DailyWifiUsageWidget extends StatelessWidget {
         }
 
         return FutureBuilder<int>(
-          future: networkService.getWifiUsageForPeriod(period),
+          future: _usageFuture,
           builder: (context, snapshot) {
             final usage = snapshot.data ?? networkService.dailyWifiUsage;
             final usageString = _formatBytes(usage);

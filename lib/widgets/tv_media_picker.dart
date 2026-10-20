@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flauncher/flauncher_channel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +33,13 @@ class _TvMediaPickerState extends State<TvMediaPicker>
   bool _permissionDenied = false;
   int _selectedIndex = 0;
   final ScrollController _scrollController = ScrollController();
+
+  /// Vertical stride of one grid row (tile height + spacing), computed from
+  /// the actual grid geometry so D-pad scrolling lands on the right offset.
+  double _rowStride = 220.0;
+
+  /// Decode size (device pixels) for grid thumbnails.
+  int _tileCacheWidth = 0;
 
   bool get isImage => widget.mode == TvMediaPickerMode.image;
 
@@ -103,19 +108,22 @@ class _TvMediaPickerState extends State<TvMediaPicker>
           ? await _channel.getMediaStoreImages()
           : await _channel.getMediaStoreVideos();
 
+      // NOTE: no File.exists() pre-check here — thousands of serial stat()
+      // round-trips made the picker take seconds to open. Missing files show
+      // as placeholder tiles via the thumbnail error path instead.
       final items = <_MediaItem>[];
       for (final entry in data) {
         final path = entry['path'] as String?;
-        if (path != null && await File(path).exists()) {
-          items.add(
-            _MediaItem(
-              id: (entry['id'] as num).toInt(),
-              name: entry['name'] as String? ?? 'Unknown',
-              path: path,
-              uri: entry['uri'] as String,
-            ),
-          );
-        }
+        final uri = entry['uri'] as String?;
+        if (path == null || uri == null) continue;
+        items.add(
+          _MediaItem(
+            id: (entry['id'] as num).toInt(),
+            name: entry['name'] as String? ?? 'Unknown',
+            path: path,
+            uri: uri,
+          ),
+        );
       }
       if (mounted) {
         setState(() {
@@ -149,8 +157,7 @@ class _TvMediaPickerState extends State<TvMediaPicker>
   }
 
   void _ensureVisible(int index) {
-    const itemHeight = 172.0;
-    final offset = index * itemHeight;
+    final offset = index * _rowStride;
     final viewportHeight = _scrollController.position.viewportDimension;
     final currentScroll = _scrollController.offset;
 
@@ -160,9 +167,9 @@ class _TvMediaPickerState extends State<TvMediaPicker>
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
-    } else if (offset + itemHeight > currentScroll + viewportHeight) {
+    } else if (offset + _rowStride > currentScroll + viewportHeight) {
       _scrollController.animateTo(
-        offset + itemHeight - viewportHeight,
+        offset + _rowStride - viewportHeight,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
@@ -311,24 +318,43 @@ class _TvMediaPickerState extends State<TvMediaPicker>
   }
 
   Widget _buildGrid() {
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        childAspectRatio: 16 / 9,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-      ),
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final item = _items[index];
-        final isSelected = index == _selectedIndex;
-        return _MediaTile(
-          item: item,
-          isSelected: isSelected,
-          isImage: isImage,
-          accentColor: Theme.of(context).colorScheme.primary,
+    const crossAxisCount = 5;
+    const mainAxisSpacing = 12.0;
+    const crossAxisSpacing = 12.0;
+    const gridPadding = 24.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth -
+                gridPadding * 2 -
+                crossAxisSpacing * (crossAxisCount - 1)) /
+            crossAxisCount;
+        final tileHeight = tileWidth / (16 / 9);
+        _rowStride = tileHeight + mainAxisSpacing;
+        _tileCacheWidth =
+            (tileWidth * MediaQuery.devicePixelRatioOf(context)).round();
+
+        return GridView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(gridPadding),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 16 / 9,
+            mainAxisSpacing: mainAxisSpacing,
+            crossAxisSpacing: crossAxisSpacing,
+          ),
+          itemCount: _items.length,
+          itemBuilder: (context, index) {
+            final item = _items[index];
+            final isSelected = index == _selectedIndex;
+            return _MediaTile(
+              item: item,
+              isSelected: isSelected,
+              isImage: isImage,
+              accentColor: Theme.of(context).colorScheme.primary,
+              cacheWidth: _tileCacheWidth,
+            );
+          },
         );
       },
     );
@@ -361,12 +387,14 @@ class _MediaTile extends StatelessWidget {
   final bool isSelected;
   final bool isImage;
   final Color accentColor;
+  final int cacheWidth;
 
   const _MediaTile({
     required this.item,
     required this.isSelected,
     required this.isImage,
     required this.accentColor,
+    required this.cacheWidth,
   });
 
   @override
@@ -386,15 +414,7 @@ class _MediaTile extends StatelessWidget {
         children: [
           Expanded(
             child: isImage
-                ? Image.file(
-                    File(item.path),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
-                      color: Colors.black26,
-                      child: Icon(Icons.broken_image, color: Colors.white38),
-                    ),
-                  )
+                ? _ImageThumbnail(uri: item.uri, cacheWidth: cacheWidth)
                 : _VideoThumbnail(
                     id: item.id,
                     path: item.path,
@@ -418,6 +438,50 @@ class _MediaTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ImageThumbnail extends StatefulWidget {
+  final String uri;
+  final int cacheWidth;
+
+  const _ImageThumbnail({required this.uri, required this.cacheWidth});
+
+  @override
+  State<_ImageThumbnail> createState() => _ImageThumbnailState();
+}
+
+class _ImageThumbnailState extends State<_ImageThumbnail> {
+  late final Future<Uint8List?> _thumb =
+      FLauncherChannel().getMediaStoreImageThumbnail(widget.uri);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _thumb,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return const ColoredBox(
+            color: Colors.black26,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: widget.cacheWidth,
+          filterQuality: FilterQuality.low,
+        );
+      },
     );
   }
 }

@@ -26,8 +26,20 @@ import 'package:provider/provider.dart';
 import '../models/app.dart';
 import '../models/category.dart';
 
-class CategoryCleanRow extends StatelessWidget
-{
+/// Extra vertical room added to the dock row so the magnified card is not
+/// clipped by the dock's rounded container.
+const double kDockMagnificationSlack = 34.0;
+
+/// macOS-style magnification curve: the focused card grows the most and the
+/// effect tapers off with the distance from it.
+double dockMagnificationScale(int distance) {
+  if (distance <= 0) return 1.35;
+  if (distance == 1) return 1.18;
+  if (distance == 2) return 1.06;
+  return 1.0;
+}
+
+class CategoryCleanRow extends StatefulWidget {
   final Category category;
   final List<App> applications;
 
@@ -45,39 +57,68 @@ class CategoryCleanRow extends StatelessWidget
   }) : super(key: key);
 
   @override
+  State<CategoryCleanRow> createState() => _CategoryCleanRowState();
+}
+
+class _CategoryCleanRowState extends State<CategoryCleanRow> {
+  int _focusedIndex = -1;
+
+  double _scaleFor(int index) {
+    if (_focusedIndex < 0) return 1.0;
+    final distance = (index - _focusedIndex).abs();
+    return dockMagnificationScale(distance);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final showAppNames = context.select<SettingsService, bool>((s) => s.showAppNamesBelowIcons);
+    final magnify = context.select<SettingsService, bool>((s) => s.dockMagnificationEnabled);
+
     Widget categoryContent;
-    if (applications.isEmpty) {
+    if (widget.applications.isEmpty) {
       categoryContent = categoryContainerEmptyState(context);
-    }
-    else {
+    } else {
       categoryContent = LayoutBuilder(
         builder: (context, constraints) {
-          final rowHeight = appCardRowExtentFromContentWidth(constraints.maxWidth)
-              + (showAppNames ? kAppNameLabelHeight : 0);
+          final rowHeight = appCardRowExtentFromContentWidth(constraints.maxWidth) +
+              (showAppNames ? kAppNameLabelHeight : 0) +
+              (magnify ? kDockMagnificationSlack : 0);
           return SizedBox(
             height: rowHeight,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: List.generate(Category.ColumnsCount, (index) {
-                if (index < applications.length) {
+                if (index < widget.applications.length) {
                   return Expanded(
                     child: Padding(
-                      key: ValueKey(applications[index].packageName),
+                      key: ValueKey(widget.applications[index].packageName),
                       padding: const EdgeInsets.symmetric(
                         horizontal: kAppCardHorizontalPadding,
                         vertical: kAppCardVerticalPadding,
                       ),
-                      child: AppCard(
-                        category: category,
-                        application: applications[index],
-                        autofocus: index == 0,
-                        handleUpNavigationToSettings: isFirstSection,
-                        scrollAlignment: scrollAlignment,
-                        enforceAspectRatio: false,
-                        onFocused: onAppFocused,
-                        onMove: (direction) => _onMove(context, direction, index),
-                        onMoveEnd: () => _onMoveEnd(context),
+                      child: AnimatedScale(
+                        scale: magnify ? _scaleFor(index) : 1.0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.center,
+                        child: AppCard(
+                          category: widget.category,
+                          application: widget.applications[index],
+                          autofocus: index == 0,
+                          handleUpNavigationToSettings: widget.isFirstSection,
+                          scrollAlignment: widget.scrollAlignment,
+                          enforceAspectRatio: false,
+                          disableInternalFocusScale: magnify,
+                          onFocused: () {
+                            widget.onAppFocused?.call();
+                            if (_focusedIndex != index) {
+                              setState(() => _focusedIndex = index);
+                            }
+                          },
+                          onMove: (direction) => _onMove(context, direction, index),
+                          onMoveEnd: () => _onMoveEnd(context),
+                        ),
                       ),
                     ),
                   );
@@ -93,9 +134,7 @@ class CategoryCleanRow extends StatelessWidget
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        categoryContent
-      ],
+      children: [categoryContent],
     );
   }
 
@@ -103,7 +142,7 @@ class CategoryCleanRow extends StatelessWidget
   void _onMove(BuildContext context, AxisDirection direction, int index) {
     int newIndex = 0;
 
-    if (direction == AxisDirection.right && index < applications.length - 1) {
+    if (direction == AxisDirection.right && index < widget.applications.length - 1) {
       newIndex = index + 1;
     } else if (direction == AxisDirection.left && index > 0) {
       newIndex = index - 1;
@@ -113,18 +152,18 @@ class CategoryCleanRow extends StatelessWidget
     }
 
     final appsService = context.read<AppsService>();
-    final movingApp = applications[index];
-    final realOldIndex = category.applications.indexOf(movingApp);
-    final realNewIndex = category.applications.indexOf(applications[newIndex]);
+    final movingApp = widget.applications[index];
+    final realOldIndex = widget.category.applications.indexOf(movingApp);
+    final realNewIndex = widget.category.applications.indexOf(widget.applications[newIndex]);
     if (realOldIndex >= 0 && realNewIndex >= 0) {
-      appsService.reorderApplication(category, realOldIndex, realNewIndex);
+      appsService.reorderApplication(widget.category, realOldIndex, realNewIndex);
       // Set pending focus so the app at the new position will request focus
-      appsService.setPendingReorderFocus(movingApp.packageName, category.id);
+      appsService.setPendingReorderFocus(movingApp.packageName, widget.category.id);
     }
   }
 
   void _onMoveEnd(BuildContext context) {
     final appsService = context.read<AppsService>();
-    appsService.saveApplicationOrderInCategory(category);
+    appsService.saveApplicationOrderInCategory(widget.category);
   }
 }

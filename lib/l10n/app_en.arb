@@ -178,5 +178,14 @@
     "weekly": "Weekly",
     "monthly": "Monthly",
     "grantPermission": "Grant Permission",
-    "checkStatus": "Check Status"
+    "checkStatus": "Check Status",
+    "slideshowMode": "Slideshow mode",
+    "slideshowModeShuffle": "Shuffle (no repeats)",
+    "slideshowModeSequential": "Sequential (folder order)",
+    "videoWallpaperBlur": "Blur over video",
+    "clockSize": "Clock size",
+    "mediaControls": "Media controls",
+    "grantMediaAccess": "Grant media access",
+    "dockMagnification": "Dock magnification",
+    "openAppAnimation": "App open animation"
 }

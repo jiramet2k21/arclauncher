@@ -47,6 +47,22 @@ class AppearancePanelPage extends StatelessWidget {
                 title: Text(localizations.dockDarkBackground, style: Theme.of(context).textTheme.bodyMedium),
                 secondary: const Icon(Icons.dark_mode),
               ),
+              Consumer<SettingsService>(
+                builder: (context, settings, __) => RoundedSwitchListTile(
+                  value: settings.dockMagnificationEnabled,
+                  onChanged: settings.setDockMagnificationEnabled,
+                  title: Text(localizations.dockMagnification, style: Theme.of(context).textTheme.bodyMedium),
+                  secondary: const Icon(Icons.zoom_out_map),
+                ),
+              ),
+              Consumer<SettingsService>(
+                builder: (context, settings, __) => RoundedSwitchListTile(
+                  value: settings.openAppAnimationEnabled,
+                  onChanged: settings.setOpenAppAnimationEnabled,
+                  title: Text(localizations.openAppAnimation, style: Theme.of(context).textTheme.bodyMedium),
+                  secondary: const Icon(Icons.open_in_full),
+                ),
+              ),
             ],
           ),
         ),

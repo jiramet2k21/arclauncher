@@ -44,6 +44,7 @@ class WallpaperService extends ChangeNotifier {
 
   bool _lastSlideshowEnabled = false;
   int _lastSlideshowInterval = 30;
+  bool _lastSlideshowShuffle = true;
   List<File> _slideshowFiles = [];
   int _slideshowIndex = 0;
   Timer? _slideshowTimer;
@@ -60,10 +61,17 @@ class WallpaperService extends ChangeNotifier {
 
   int get slideshowIndex => _slideshowIndex;
 
-  File? get wallpaperVideoFile {
-    final f = _resolveActiveVideoFile();
-    return f != null && f.existsSync() ? f : null;
-  }
+  /// The slide currently displayed (blur snapshot source while slideshow is
+  /// active — `wallpaper` is null then, slides render separately).
+  File? get currentSlideshowFile =>
+      slideshowActive && _slideshowIndex < _slideshowFiles.length
+      ? _slideshowFiles[_slideshowIndex]
+      : null;
+
+  /// Cached active video wallpaper. Resolved in [_updateWallpaper] instead of
+  /// stat()-ing up to three files on every build/selector read.
+  File? _activeVideoFile;
+  File? get wallpaperVideoFile => _activeVideoFile;
 
   FLauncherGradient get gradient => FLauncherGradients.all.firstWhere(
     (gradient) => gradient.uuid == _settingsService.gradientUuid,
@@ -102,6 +110,15 @@ class WallpaperService extends ChangeNotifier {
         _restartSlideshowTimer();
       }
     }
+
+    final slideshowShuffle = _settingsService.slideshowShuffle;
+    if (slideshowShuffle != _lastSlideshowShuffle) {
+      _lastSlideshowShuffle = slideshowShuffle;
+      // Re-order the playlist with the newly selected mode.
+      if (slideshowActive) {
+        _startSlideshowFromSettings();
+      }
+    }
   }
 
   @override
@@ -125,6 +142,7 @@ class WallpaperService extends ChangeNotifier {
     _lastTimeBasedEnabled = _settingsService.timeBasedWallpaperEnabled;
     _lastSlideshowEnabled = _settingsService.slideshowEnabled;
     _lastSlideshowInterval = _settingsService.slideshowIntervalSeconds;
+    _lastSlideshowShuffle = _settingsService.slideshowShuffle;
     _updateWallpaper();
     _updateTimerState();
     if (_lastSlideshowEnabled) {
@@ -176,6 +194,7 @@ class WallpaperService extends ChangeNotifier {
     final enabled = _settingsService.timeBasedWallpaperEnabled;
 
     final videoFile = _resolveActiveVideoFile();
+    _activeVideoFile = videoFile;
 
     ImageProvider? newWallpaper;
 
@@ -353,7 +372,12 @@ class WallpaperService extends ChangeNotifier {
     await cleanVideoWallpaperFiles();
     await _settingsService.setSlideshowFolderName(folderName ?? bucketId);
 
-    _slideshowFiles = files..shuffle(_random);
+    // Zero-padded filenames preserve the MediaStore order on disk, so a plain
+    // sort gives sequential playback (newest first) and shuffling gives the
+    // no-repeat-until-all-shown randomized order.
+    _slideshowFiles = _settingsService.slideshowShuffle
+        ? (files..shuffle(_random))
+        : files;
     _slideshowIndex = 0;
     _restartSlideshowTimer();
     _updateWallpaper(force: true);
@@ -365,9 +389,10 @@ class WallpaperService extends ChangeNotifier {
     if (await slideshowDir.exists()) {
       final entries = await slideshowDir.list().toList();
       final files = entries.whereType<File>().toList()
-        ..sort((a, b) => a.path.compareTo(b.path))
-        ..shuffle(_random);
-      _slideshowFiles = files;
+        ..sort((a, b) => a.path.compareTo(b.path));
+      _slideshowFiles = _settingsService.slideshowShuffle
+          ? (files..shuffle(_random))
+          : files;
     } else {
       _slideshowFiles = [];
     }
@@ -386,7 +411,7 @@ class WallpaperService extends ChangeNotifier {
           final nextIndex = _slideshowIndex + 1;
           if (nextIndex < _slideshowFiles.length) {
             _slideshowIndex = nextIndex;
-          } else {
+          } else if (_settingsService.slideshowShuffle) {
             // Every photo has been shown once: start a fresh cycle from a new
             // shuffle, making sure the first image differs from the last one
             // shown so no photo plays back-to-back across cycles.
@@ -399,6 +424,9 @@ class WallpaperService extends ChangeNotifier {
               shuffled[swapIndex] = tmp;
             }
             _slideshowFiles = shuffled;
+            _slideshowIndex = 0;
+          } else {
+            // Sequential mode: wrap back to the first photo in folder order.
             _slideshowIndex = 0;
           }
           _wallpaperRevision++;

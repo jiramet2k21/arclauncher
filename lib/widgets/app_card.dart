@@ -22,6 +22,7 @@ import 'package:flauncher/actions.dart';
 import 'package:flauncher/app_image_type.dart';
 import 'package:flauncher/providers/apps_service.dart';
 import 'package:flauncher/providers/settings_service.dart';
+import 'package:flauncher/widgets/app_launch_overlay.dart';
 import 'package:flauncher/widgets/application_info_panel.dart';
 import 'package:flauncher/widgets/focus_keyboard_listener.dart';
 import 'package:flutter/material.dart';
@@ -64,6 +65,7 @@ class AppCard extends StatefulWidget {
   final VoidCallback? onFocused;
   final bool ensureVisibleOnFocus;
   final bool onlyScrollWhenNearBottom;
+  final bool disableInternalFocusScale;
 
   const AppCard({
     super.key,
@@ -78,6 +80,7 @@ class AppCard extends StatefulWidget {
     this.onFocused,
     this.ensureVisibleOnFocus = true,
     this.onlyScrollWhenNearBottom = false,
+    this.disableInternalFocusScale = false,
   });
 
   @override
@@ -195,11 +198,12 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
     return FocusKeyboardListener(
       onPressed: _onPressed,
       onLongPress: _onLongPress,
-      child: AnimatedScale(
-        scale: _clicked ? 0.9 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOutCubic,
-        child: AnimatedOpacity(
+      child: RepaintBoundary(
+        child: AnimatedScale(
+          scale: _clicked ? 0.9 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
           opacity: _clicked ? 0.85 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Column(
@@ -207,9 +211,8 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
             children: [
               Flexible(
                 child: _wrapAspectRatio(
-                  RepaintBoundary(
-                    child: AnimatedScale(
-                      scale: !_moving && shouldHighlight ? _focusedScale : 1.0,
+                  AnimatedScale(
+                    scale: !_moving && shouldHighlight && !widget.disableInternalFocusScale ? _focusedScale : 1.0,
                       duration: _focusAnimationDuration,
                       alignment: Alignment.center,
                       curve: Curves.easeOutCubic,
@@ -273,6 +276,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -563,9 +567,20 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
     } else if (_validationKeys.contains(key)) {
       if (!_clicked) {
         setState(() => _clicked = true);
-        Future.delayed(const Duration(milliseconds: 150), () {
+        Future.delayed(const Duration(milliseconds: 150), () async {
           if (!mounted) return;
-          context.read<AppsService>().launchApp(widget.application);
+          final overlayHost = AppLaunchOverlayHost.of(context);
+          if (overlayHost != null && context.read<SettingsService>().openAppAnimationEnabled) {
+            final renderBox = context.findRenderObject() as RenderBox?;
+            if (renderBox != null && renderBox.hasSize) {
+              await overlayHost.start(
+                widget.application,
+                renderBox.localToGlobal(Offset.zero) & renderBox.size,
+              );
+            }
+          } else {
+            await context.read<AppsService>().launchApp(widget.application);
+          }
           // Reset after a short delay so it looks normal when user returns
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {

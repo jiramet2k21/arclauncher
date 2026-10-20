@@ -837,6 +837,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Check Status'**
   String get checkStatus;
+
+  /// No description provided for @slideshowMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow mode'**
+  String get slideshowMode;
+
+  /// No description provided for @slideshowModeShuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle (no repeats)'**
+  String get slideshowModeShuffle;
+
+  /// No description provided for @slideshowModeSequential.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequential (folder order)'**
+  String get slideshowModeSequential;
+
+  /// No description provided for @videoWallpaperBlur.
+  ///
+  /// In en, this message translates to:
+  /// **'Blur over video'**
+  String get videoWallpaperBlur;
+
+  /// No description provided for @clockSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock size'**
+  String get clockSize;
+
+  /// No description provided for @mediaControls.
+  ///
+  /// In en, this message translates to:
+  /// **'Media controls'**
+  String get mediaControls;
+
+  /// No description provided for @grantMediaAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant media access'**
+  String get grantMediaAccess;
+
+  /// No description provided for @dockMagnification.
+  ///
+  /// In en, this message translates to:
+  /// **'Dock magnification'**
+  String get dockMagnification;
+
+  /// No description provided for @openAppAnimation.
+  ///
+  /// In en, this message translates to:
+  /// **'App open animation'**
+  String get openAppAnimation;
 }
 
 class _AppLocalizationsDelegate

@@ -48,6 +48,17 @@ const String _showFocusBorders = "show_focus_borders";
 const String _slideshowEnabled = "slideshow_enabled";
 const String _slideshowIntervalSeconds = "slideshow_interval_seconds";
 const String _slideshowFolderName = "slideshow_folder_name";
+const String _slideshowShuffle = "slideshow_shuffle";
+const String _clockSize = "clock_size";
+const String _videoWallpaperBlurEnabled = "video_wallpaper_blur_enabled";
+const String _dockMagnificationEnabled = "dock_magnification_enabled";
+const String _showMediaControlsInStatusBar = "show_media_controls_in_status_bar";
+const String _openAppAnimationEnabled = "open_app_animation_enabled";
+
+/// Status bar clock size steps (logical pixels). The date is rendered at the
+/// same size as the clock.
+const List<int> clockSizeOptions = <int>[28, 40, 56, 72];
+const int defaultClockSize = 40;
 
 // WiFi usage period options
 const String WIFI_USAGE_DAILY = "daily";
@@ -121,6 +132,33 @@ class SettingsService extends ChangeNotifier {
   bool get dockShadowEnabled => _sharedPreferences.getBool(_dockShadowEnabled) ?? false;
 
   bool get showFocusBorders => _sharedPreferences.getBool(_showFocusBorders) ?? true;
+
+  /// Slideshow playback order: shuffled (no photo repeats until every photo
+  /// has been shown) or sequential in folder order.
+  bool get slideshowShuffle => _sharedPreferences.getBool(_slideshowShuffle) ?? true;
+
+  /// Status bar clock font size in logical pixels (date follows).
+  int get clockSize {
+    final value = _sharedPreferences.getInt(_clockSize) ?? defaultClockSize;
+    return clockSizeOptions.contains(value) ? value : defaultClockSize;
+  }
+
+  /// Blur the dock while a video wallpaper plays. Off by default: the live
+  /// per-frame blur is what made video playback choppy on this GPU.
+  bool get videoWallpaperBlurEnabled =>
+      _sharedPreferences.getBool(_videoWallpaperBlurEnabled) ?? false;
+
+  /// macOS-style magnification of the dock item under focus.
+  bool get dockMagnificationEnabled =>
+      _sharedPreferences.getBool(_dockMagnificationEnabled) ?? true;
+
+  /// Now-playing media controls in the status bar.
+  bool get showMediaControlsInStatusBar =>
+      _sharedPreferences.getBool(_showMediaControlsInStatusBar) ?? true;
+
+  /// Zoom animation when opening an app from the launcher.
+  bool get openAppAnimationEnabled =>
+      _sharedPreferences.getBool(_openAppAnimationEnabled) ?? true;
 
   Color get accentColor {
     final hex = accentColorHex;
@@ -265,5 +303,34 @@ class SettingsService extends ChangeNotifier {
       await _sharedPreferences.setString(_slideshowFolderName, name);
     }
     notifyListeners();
+  }
+
+  Future<void> setSlideshowShuffle(bool shuffle) async {
+    await _sharedPreferences.setBool(_slideshowShuffle, shuffle);
+    notifyListeners();
+  }
+
+  Future<void> setClockSize(int size) async {
+    await _sharedPreferences.setInt(
+      _clockSize,
+      clockSizeOptions.contains(size) ? size : defaultClockSize,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setVideoWallpaperBlurEnabled(bool value) async {
+    return set(_videoWallpaperBlurEnabled, value);
+  }
+
+  Future<void> setDockMagnificationEnabled(bool value) async {
+    return set(_dockMagnificationEnabled, value);
+  }
+
+  Future<void> setShowMediaControlsInStatusBar(bool value) async {
+    return set(_showMediaControlsInStatusBar, value);
+  }
+
+  Future<void> setOpenAppAnimationEnabled(bool value) async {
+    return set(_openAppAnimationEnabled, value);
   }
 }

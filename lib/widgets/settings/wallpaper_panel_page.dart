@@ -22,6 +22,7 @@ import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/providers/wallpaper_service.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flauncher/widgets/settings/gradient_panel_page.dart';
+import 'package:flauncher/widgets/settings/slideshow_mode_page.dart';
 import 'package:flauncher/widgets/tv_media_picker.dart';
 import 'package:flauncher/widgets/tv_folder_picker.dart';
 import 'package:flutter/material.dart';
@@ -131,6 +132,16 @@ class WallpaperPanelPage extends StatelessWidget {
                     ),
                     onPressed: () => _pickSlideshowFolder(context),
                   ),
+                  FocusableSettingsTile(
+                    leading: Icon(Icons.shuffle),
+                    title: Text(localizations.slideshowMode),
+                    trailing: Text(
+                      settings.slideshowShuffle
+                          ? localizations.slideshowModeShuffle
+                          : localizations.slideshowModeSequential,
+                    ),
+                    onPressed: () => Navigator.of(context).pushNamed(SlideshowModePage.routeName),
+                  ),
                 ],
               );
             } else {
@@ -174,6 +185,16 @@ class WallpaperPanelPage extends StatelessWidget {
                 ],
               );
             }
+          },
+        ),
+        Consumer<SettingsService>(
+          builder: (_, settings, __) {
+            return RoundedSwitchListTile(
+              title: Text(localizations.videoWallpaperBlur),
+              secondary: Icon(Icons.blur_on),
+              value: settings.videoWallpaperBlurEnabled,
+              onChanged: (value) => settings.setVideoWallpaperBlurEnabled(value),
+            );
           },
         ),
       ],

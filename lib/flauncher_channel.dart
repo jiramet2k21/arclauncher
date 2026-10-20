@@ -24,6 +24,7 @@ class FLauncherChannel {
   static const _methodChannel = MethodChannel('me.efesser.flauncher/method');
   static const _appsEventChannel = EventChannel('me.efesser.flauncher/event_apps');
   static const _networkEventChannel = EventChannel('me.efesser.flauncher/event_network');
+  static const _mediaEventChannel = EventChannel('me.efesser.flauncher/event_media');
 
   static const _watchNextMaxItems = 10;
 
@@ -141,6 +142,19 @@ class FLauncherChannel {
     }
   }
 
+  /// Generate a small thumbnail for a MediaStore image content:// URI
+  /// (picker grid). Empty on failure — the tile shows a placeholder.
+  Future<Uint8List?> getMediaStoreImageThumbnail(String contentUri) async {
+    try {
+      return await _methodChannel.invokeMethod<Uint8List>(
+        "getMediaStoreImageThumbnail",
+        contentUri,
+      );
+    } on PlatformException {
+      return null;
+    }
+  }
+
   Future<bool> installApk(String apkPath) async =>
       await _methodChannel.invokeMethod("installApk", apkPath);
 
@@ -217,5 +231,66 @@ class FLauncherChannel {
     } catch (e) {
       return Uint8List(0);
     }
+  }
+
+  /// Active media sessions (now-playing info) as reported by the native
+  /// media-session listener. Empty when notification access isn't granted.
+  Future<List<Map<String, dynamic>>> getActiveMediaSessions() async {
+    try {
+      List<dynamic>? result = await _methodChannel.invokeListMethod('getActiveMediaSessions');
+      if (result == null) return [];
+      return result
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+    } on PlatformException {
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Send a transport command ("play", "pause", "playPause", "next",
+  /// "previous", "stop") to the media session owned by [packageName].
+  Future<bool> mediaTransport(String packageName, String action) async {
+    try {
+      return await _methodChannel.invokeMethod('mediaTransport', {
+        'packageName': packageName,
+        'action': action,
+      }) ?? false;
+    } on PlatformException {
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> isNotificationListenerEnabled() async {
+    try {
+      return await _methodChannel.invokeMethod('isNotificationListenerEnabled') ?? false;
+    } on PlatformException {
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> openNotificationListenerSettings() async {
+    try {
+      await _methodChannel.invokeMethod('openNotificationListenerSettings');
+    } on PlatformException {
+      // ignore
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  void addMediaChangedListener(void Function(List<Map<String, dynamic>>) listener) {
+    _mediaEventChannel.receiveBroadcastStream().listen((event) {
+      if (event is List) {
+        listener(event
+            .map((e) => (e as Map).cast<String, dynamic>())
+            .toList());
+      }
+    });
   }
 }
