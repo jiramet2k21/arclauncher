@@ -89,7 +89,7 @@ class WallpaperPanelPage extends StatelessWidget {
                     title: Text(localizations.pickDayVideoWallpaper),
                     onPressed: () => _pickWallpaper(
                       context,
-                      (s, media) => s.pickVideoWallpaperDay(File(media.path)),
+                      (s, media) => s.pickVideoWallpaperDay(media.uri, File(media.path)),
                       true,
                     ),
                   ),
@@ -107,7 +107,7 @@ class WallpaperPanelPage extends StatelessWidget {
                     title: Text(localizations.pickNightVideoWallpaper),
                     onPressed: () => _pickWallpaper(
                       context,
-                      (s, media) => s.pickVideoWallpaperNight(File(media.path)),
+                      (s, media) => s.pickVideoWallpaperNight(media.uri, File(media.path)),
                       true,
                     ),
                   ),
@@ -167,7 +167,7 @@ class WallpaperPanelPage extends StatelessWidget {
                     ),
                     onPressed: () => _pickWallpaper(
                       context,
-                      (s, media) => s.pickVideoWallpaper(File(media.path)),
+                      (s, media) => s.pickVideoWallpaper(media.uri, File(media.path)),
                       true,
                     ),
                   ),
@@ -236,8 +236,21 @@ class WallpaperPanelPage extends StatelessWidget {
       context,
       mode: isVideo ? TvMediaPickerMode.video : TvMediaPickerMode.image,
     );
-    if (media != null && context.mounted) {
+    if (media == null || !context.mounted) return;
+    try {
       await action(context.read<WallpaperService>(), media);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isVideo
+                  ? 'Could not load the selected video'
+                  : 'Could not load the selected image',
+            ),
+          ),
+        );
+      }
     }
   }
 }

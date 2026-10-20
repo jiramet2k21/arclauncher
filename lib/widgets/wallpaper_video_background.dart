@@ -103,7 +103,11 @@ class _WallpaperVideoBackgroundState extends State<WallpaperVideoBackground>
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        controller.value.hasError) {
+      // Not ready yet (or the codec cannot play the file): stay black instead
+      // of showing a frozen/partial frame over the home screen.
       return const ColoredBox(color: Colors.black);
     }
 

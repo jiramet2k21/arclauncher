@@ -204,4 +204,18 @@ class FLauncherChannel {
       return Uint8List(0);
     }
   }
+
+  /// Load video bytes from a content:// URI (scoped-storage safe path for the
+  /// video wallpaper picker). Empty on failure — caller falls back to the
+  /// raw file path copy.
+  Future<Uint8List> loadContentUriVideoBytes(String contentUri) async {
+    try {
+      var result = await _methodChannel.invokeMethod('loadContentUriVideoBytes', contentUri);
+      return result ?? Uint8List(0);
+    } on PlatformException {
+      return Uint8List(0);
+    } catch (e) {
+      return Uint8List(0);
+    }
+  }
 }

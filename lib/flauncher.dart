@@ -508,9 +508,14 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     }
     if (wallpaperService.wallpaper != null) {
       return Image(
-        image: ResizeImage(wallpaperService.wallpaper!, height: (screenSize.height * dpr).round()),
+        image: ResizeImage(
+          wallpaperService.wallpaper!,
+          height: (screenSize.height * dpr).round(),
+          allowUpscaling: false,
+        ),
         key: ValueKey("background_${wallpaperService.wallpaperRevision}"),
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.low,
         height: screenSize.height,
         width: screenSize.width,
       );

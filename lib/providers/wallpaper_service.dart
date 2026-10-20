@@ -18,6 +18,7 @@
 
 import 'dart:io';
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flauncher/flauncher_channel.dart';
@@ -27,6 +28,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:path_provider/path_provider.dart';
 
 class WallpaperService extends ChangeNotifier {
+  final Random _random = Random();
   final SettingsService _settingsService;
   final FLauncherChannel _channel = FLauncherChannel();
 
@@ -231,16 +233,16 @@ class WallpaperService extends ChangeNotifier {
     );
   }
 
-  Future<void> pickVideoWallpaper(File sourceFile) async {
-    await _saveVideo(sourceFile, _wallpaperVideoFile);
+  Future<void> pickVideoWallpaper(String? mediaUri, File sourceFile) async {
+    await _saveVideo(mediaUri, sourceFile, _wallpaperVideoFile);
   }
 
-  Future<void> pickVideoWallpaperDay(File sourceFile) async {
-    await _saveVideo(sourceFile, _wallpaperDayVideoFile);
+  Future<void> pickVideoWallpaperDay(String? mediaUri, File sourceFile) async {
+    await _saveVideo(mediaUri, sourceFile, _wallpaperDayVideoFile);
   }
 
-  Future<void> pickVideoWallpaperNight(File sourceFile) async {
-    await _saveVideo(sourceFile, _wallpaperNightVideoFile);
+  Future<void> pickVideoWallpaperNight(String? mediaUri, File sourceFile) async {
+    await _saveVideo(mediaUri, sourceFile, _wallpaperNightVideoFile);
   }
 
   Future<void> _saveImage(File sourceFile, File targetFile) async {
@@ -282,16 +284,28 @@ class WallpaperService extends ChangeNotifier {
     _updateWallpaper(force: true);
   }
 
-  Future<void> _saveVideo(File sourceFile, File targetVideoFile) async {
+  Future<void> _saveVideo(String? mediaUri, File sourceFile, File targetVideoFile) async {
     await _deactivateSlideshow();
     final pairedImage = _pairedImageForVideo(targetVideoFile);
     if (pairedImage != null && await pairedImage.exists()) {
       await pairedImage.delete();
     }
 
-    final readStream = sourceFile.openRead();
-    final writeStream = targetVideoFile.openWrite();
-    await readStream.cast<List<int>>().pipe(writeStream);
+    // Prefer reading through the content:// URI: on Android 11 scoped storage
+    // a direct File(path) read of a MediaStore row often fails silently.
+    bool saved = false;
+    if (mediaUri != null && mediaUri.isNotEmpty) {
+      final bytes = await _channel.loadContentUriVideoBytes(mediaUri);
+      if (bytes.isNotEmpty) {
+        await targetVideoFile.writeAsBytes(bytes, flush: true);
+        saved = true;
+      }
+    }
+    if (!saved) {
+      final readStream = sourceFile.openRead();
+      final writeStream = targetVideoFile.openWrite();
+      await readStream.cast<List<int>>().pipe(writeStream);
+    }
 
     _updateWallpaper(force: true);
   }
@@ -339,7 +353,7 @@ class WallpaperService extends ChangeNotifier {
     await cleanVideoWallpaperFiles();
     await _settingsService.setSlideshowFolderName(folderName ?? bucketId);
 
-    _slideshowFiles = files;
+    _slideshowFiles = files..shuffle(_random);
     _slideshowIndex = 0;
     _restartSlideshowTimer();
     _updateWallpaper(force: true);
@@ -351,7 +365,8 @@ class WallpaperService extends ChangeNotifier {
     if (await slideshowDir.exists()) {
       final entries = await slideshowDir.list().toList();
       final files = entries.whereType<File>().toList()
-        ..sort((a, b) => a.path.compareTo(b.path));
+        ..sort((a, b) => a.path.compareTo(b.path))
+        ..shuffle(_random);
       _slideshowFiles = files;
     } else {
       _slideshowFiles = [];
@@ -368,7 +383,24 @@ class WallpaperService extends ChangeNotifier {
       _slideshowTimer = Timer.periodic(
         Duration(seconds: _settingsService.slideshowIntervalSeconds),
         (_) {
-          _slideshowIndex = (_slideshowIndex + 1) % _slideshowFiles.length;
+          final nextIndex = _slideshowIndex + 1;
+          if (nextIndex < _slideshowFiles.length) {
+            _slideshowIndex = nextIndex;
+          } else {
+            // Every photo has been shown once: start a fresh cycle from a new
+            // shuffle, making sure the first image differs from the last one
+            // shown so no photo plays back-to-back across cycles.
+            final lastShown = _slideshowFiles[_slideshowIndex];
+            final shuffled = List.of(_slideshowFiles)..shuffle(_random);
+            if (_slideshowFiles.length > 1 && shuffled.first.path == lastShown.path) {
+              final swapIndex = 1 + _random.nextInt(_slideshowFiles.length - 1);
+              final tmp = shuffled[0];
+              shuffled[0] = shuffled[swapIndex];
+              shuffled[swapIndex] = tmp;
+            }
+            _slideshowFiles = shuffled;
+            _slideshowIndex = 0;
+          }
           _wallpaperRevision++;
           notifyListeners();
         },

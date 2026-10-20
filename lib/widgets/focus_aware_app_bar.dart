@@ -151,7 +151,11 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                           dateTimeSettings.timeFormat,
                           key: const Key("statusbar_clock"),
                           updateInterval: const Duration(minutes: 1),
-                          textStyle: textStyle.copyWith(fontWeight: FontWeight.bold),
+                          textStyle: textStyle.copyWith(
+                            fontWeight: FontWeight.bold,
+                            // Large (2x) clock in the status bar; date keeps the standard size.
+                            fontSize: textStyle.fontSize! * 2,
+                          ),
                         ),
                     ]
                   );

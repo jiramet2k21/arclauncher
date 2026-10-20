@@ -361,7 +361,7 @@ class _WatchNextCard extends StatefulWidget {
 class _WatchNextCardState extends State<_WatchNextCard> {
   bool _isHovered = false;
   bool _clicked = false;
-  static const double _focusedScale = 1.06;
+  static const double _focusedScale = 1.15;
   static const double _focusedLift = -4.0;
 
   @override

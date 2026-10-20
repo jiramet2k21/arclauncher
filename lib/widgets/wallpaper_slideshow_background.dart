@@ -50,7 +50,11 @@ class _WallpaperSlideshowBackgroundState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || widget.files.length < 2) return;
       precacheImage(
-        ResizeImage(FileImage(widget.files[1]), height: widget.imageHeight),
+        ResizeImage(
+          FileImage(widget.files[1]),
+          height: widget.imageHeight,
+          allowUpscaling: false,
+        ),
         context,
       );
     });
@@ -65,6 +69,7 @@ class _WallpaperSlideshowBackgroundState
       ResizeImage(
         FileImage(widget.files[nextIndex]),
         height: widget.imageHeight,
+        allowUpscaling: false,
       ),
       context,
     );
@@ -82,8 +87,13 @@ class _WallpaperSlideshowBackgroundState
         duration: const Duration(milliseconds: 800),
         child: Image(
           key: ValueKey('slide_${safeIndex}_${file.path}'),
-          image: ResizeImage(FileImage(file), height: widget.imageHeight),
+          image: ResizeImage(
+            FileImage(file),
+            height: widget.imageHeight,
+            allowUpscaling: false,
+          ),
           fit: BoxFit.cover,
+          filterQuality: FilterQuality.low,
           gaplessPlayback: true,
           width: double.infinity,
           height: double.infinity,

@@ -162,6 +162,7 @@ public class MainActivity extends FlutterActivity {
                     requestMediaPermissions();
                     result.success(null);
                 }
+                case "loadContentUriVideoBytes" -> result.success(loadContentUriVideoBytes((String) call.arguments()));
                 case "checkWatchNextPermission" -> result.success(checkWatchNextPermission());
                 case "requestWatchNextPermission" -> {
                     requestWatchNextPermission();
@@ -965,6 +966,34 @@ public class MainActivity extends FlutterActivity {
             android.util.Log.e("MainActivity", "Error loading content URI image: " + contentUri, e);
         }
         android.util.Log.w("MainActivity", "Returning empty byte array for: " + contentUri);
+        return new byte[0];
+    }
+
+    /**
+     * Load video bytes from a content:// URI (scoped-storage safe path used by
+     * the video wallpaper picker; falls back to a direct file read in Dart).
+     */
+    private byte[] loadContentUriVideoBytes(String contentUri) {
+        try {
+            android.net.Uri uri = android.net.Uri.parse(contentUri);
+            try (java.io.InputStream inputStream = getContentResolver().openInputStream(uri)) {
+                if (inputStream != null) {
+                    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                    byte[] buffer = new byte[65536];
+                    int length;
+                    while ((length = inputStream.read(buffer)) != -1) {
+                        out.write(buffer, 0, length);
+                    }
+                    android.util.Log.d("MainActivity", "Loaded " + out.size() + " video bytes from content URI");
+                    return out.toByteArray();
+                }
+                android.util.Log.w("MainActivity", "openInputStream returned null for video: " + contentUri);
+            }
+        } catch (SecurityException e) {
+            android.util.Log.w("MainActivity", "SecurityException loading content URI video: " + e.getMessage());
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error loading content URI video: " + contentUri, e);
+        }
         return new byte[0];
     }
 

@@ -17,6 +17,7 @@
  */
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flauncher/providers/wallpaper_service.dart';
@@ -112,8 +113,13 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
     if (_building) return;
     _building = true;
     try {
-      final pxWidth = (size.width * dpr).round();
-      final pxHeight = (size.height * dpr).round();
+      // A heavy GPU blur on the TV is the main cause of "slow" transitions, so
+      // the snapshot is rendered at a quarter of the device pixel dimensions
+      // (~16x cheaper to blur/store). The blit then upscales it — visually
+      // indistinguishable because the content is already blurred.
+      const snapshotScale = 0.25;
+      final pxWidth = math.max(1, (size.width * dpr * snapshotScale).round());
+      final pxHeight = math.max(1, (size.height * dpr * snapshotScale).round());
       final rect = Rect.fromLTWH(0, 0, pxWidth.toDouble(), pxHeight.toDouble());
 
       ui.Image? source;
@@ -127,8 +133,8 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
       final blurPaint =
           Paint()
             ..imageFilter = ui.ImageFilter.blur(
-              sigmaX: sigma * dpr,
-              sigmaY: sigma * dpr,
+              sigmaX: sigma * dpr * snapshotScale,
+              sigmaY: sigma * dpr * snapshotScale,
               tileMode: TileMode.clamp,
             );
       canvas.saveLayer(rect, blurPaint);
@@ -267,6 +273,6 @@ class _BlurBlitRender extends RenderBox {
     final screenPos = localToGlobal(Offset.zero);
     final src = Rect.fromLTWH(screenPos.dx * scaleX, screenPos.dy * scaleY, size.width * scaleX, size.height * scaleY);
     final dst = offset & size;
-    context.canvas.drawImageRect(_image, src, dst, Paint()..filterQuality = FilterQuality.low);
+    context.canvas.drawImageRect(_image, src, dst, Paint()..filterQuality = FilterQuality.medium);
   }
 }
