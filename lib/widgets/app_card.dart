@@ -266,8 +266,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
                             else
                               IgnorePointer(child: RepaintBoundary(child: _HighlightOutline(color: _accentColor))),
                         ],
-                      ),
-                    ),
+                ),
                 ),
                 ),
               ),

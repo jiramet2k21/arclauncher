@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flauncher/models/app.dart';
@@ -55,7 +56,7 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
         }
         if (bytes.isNotEmpty) {
           final codec = await ui.instantiateImageCodec(bytes);
-          final frame = codec.getNextFrame();
+          final frame = await codec.getNextFrame();
           aspect = frame.image.width / math.max(1, frame.image.height);
           frame.image.dispose();
           codec.dispose();

@@ -62,10 +62,6 @@ import io.flutter.plugin.common.MethodChannel;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;

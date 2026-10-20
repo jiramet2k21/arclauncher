@@ -8,6 +8,7 @@
  */
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flauncher/flauncher_channel.dart';
