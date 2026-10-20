@@ -42,7 +42,7 @@ public class MediaSessionListenerService extends NotificationListenerService {
     /** Last known state, served to Dart on connect. */
     private static volatile List<Map<String, Object>> currentSessions = new ArrayList<>();
 
-    private static final MediaController.Callback controllerCallback =
+    private final MediaController.Callback controllerCallback =
             new MediaController.Callback() {
                 @Override
                 public void onPlaybackStateChanged(@Nullable PlaybackState state) {
