@@ -38,8 +38,12 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 340),
+    duration: const Duration(milliseconds: 380),
   );
+
+  /// Delay between the animation finishing and the app actually starting, so
+  /// the animation is never cut short by the activity transition.
+  static const Duration _launchDelay = Duration(milliseconds: 700);
 
   @override
   void dispose() {
@@ -89,6 +93,10 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
 
       _controller.reset();
       await _controller.forward();
+
+      // Hold the final frame for a moment: launching the app immediately used
+      // to cut the animation short mid-way.
+      await Future.delayed(_launchDelay);
 
       await context.read<AppsService>().launchApp(app);
 
@@ -148,7 +156,9 @@ class _AppLaunchOverlayHostState extends State<AppLaunchOverlayHost> with Single
     final to = _targetRect(screen, from);
     final eased = Curves.easeOutCubic.transform(t);
     final rect = Rect.lerp(from, to, eased)!;
-    final opacity = (1.0 - t / 0.65).clamp(0.0, 1.0);
+    // Fade towards 0.35 (not 0) so the icon stays faintly visible during the
+    // hold that precedes the launch.
+    final opacity = (1.0 - 0.65 * math.min(1.0, t / 0.65)).clamp(0.0, 1.0);
 
     return Stack(
       children: [
