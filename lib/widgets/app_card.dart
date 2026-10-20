@@ -399,6 +399,12 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
       return;
     }
 
+    // Notify the parent row first: the scroll-throttle and the
+    // ensure-visible work below can bail out early (or throw) during
+    // launcher startup, which used to leave the dock row without a
+    // focused index — no magnification and no sliding highlight.
+    widget.onFocused?.call();
+
     final now = DateTime.now();
     if (_lastEnsureVisibleAt != null && now.difference(_lastEnsureVisibleAt!).inMilliseconds < 120) {
       return;
@@ -417,7 +423,6 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
         onlyWhenNearBottom: widget.onlyScrollWhenNearBottom,
       );
     }
-    widget.onFocused?.call();
   }
 
   void _updateHighlightAnimation() {
