@@ -117,7 +117,7 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                     String dateFormat,
                     String timeFormat,
                     int clockSize,
-                    String clockFontStyle })>
+                    String clockFontStyle })>(
                 selector: (context, service) => (
                 showDateInStatusBar: service.showDateInStatusBar,
                 showTimeInStatusBar: service.showTimeInStatusBar,
