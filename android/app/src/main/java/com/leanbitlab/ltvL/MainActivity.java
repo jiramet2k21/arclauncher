@@ -244,14 +244,14 @@ public class MainActivity extends FlutterActivity {
 
         MediaEventStreamHandler(MainActivity activity) {
             this.activity = activity;
+            this.callback = sessions -> activity.runOnUiThread(() -> {
+                if (sink != null) {
+                    sink.success(sessions);
+                }
+            });
         }
 
-        private final MediaSessionListenerService.Callback callback =
-                sessions -> activity.runOnUiThread(() -> {
-                    if (sink != null) {
-                        sink.success(sessions);
-                    }
-                });
+        private final MediaSessionListenerService.Callback callback;
 
         @Override
         public void onListen(Object arguments, EventChannel.EventSink eventSink) {
