@@ -131,8 +131,6 @@ class MiscPanelPage extends StatelessWidget {
     switch (size) {
       case "medium":
         return "Medium";
-      case "large":
-        return "Large";
       case "small":
       default:
         return "Small";

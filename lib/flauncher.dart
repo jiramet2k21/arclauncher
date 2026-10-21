@@ -108,9 +108,9 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
               builder: (context, gradient, __) {
                 if (gradient == "off") return const SizedBox.shrink();
                 final height = switch (gradient) {
-                  "small" => 80.0,
-                  "medium" => 140.0,
-                  _ => 220.0,
+                  "small" => 40.0,
+                  "medium" => 70.0,
+                  _ => 110.0,
                 };
                 return Positioned(
                   top: 0,
@@ -495,8 +495,15 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     const dockBorderRadius = 24.0;
     final borderRadius = BorderRadius.circular(dockBorderRadius);
 
-    final content = Container(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+    final row = CategoryCleanRow(
+      category: category,
+      applications: apps,
+      isFirstSection: handleUpNavigationToSettings,
+      scrollAlignment: 1.0,
+      onAppFocused: _onHomeSectionFocused,
+    );
+
+    final background = Container(
       decoration: BoxDecoration(
         color: darkBackground ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.1),
         borderRadius: borderRadius,
@@ -505,28 +512,37 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
           width: 1.5,
         ),
       ),
-      child: CategoryCleanRow(
-        category: category,
-        applications: apps,
-        isFirstSection: handleUpNavigationToSettings,
-        scrollAlignment: 1.0,
-        onAppFocused: _onHomeSectionFocused,
-      ),
     );
 
+    // The blurred/rounded panel is drawn behind the icons. The icons live in a
+    // separate, unclipped sibling so a magnified card can pop out above the
+    // dock and is never remounted when the blur snapshot changes.
     return Center(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          boxShadow: shadowEnabled
-              ? [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
-              : null,
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          clipBehavior: Clip.antiAlias,
-          child: backdropDisabled ? content : CachedBlurBackdrop(sigma: 5, child: content),
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                boxShadow: shadowEnabled
+                    ? [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: borderRadius,
+                clipBehavior: Clip.antiAlias,
+                child: backdropDisabled ? background : CachedBlurBackdrop(sigma: 5, child: background),
+              ),
+            ),
+          ),
+          RepaintBoundary(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: row,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -96,8 +96,8 @@ const String defaultOpenAppAnimationStyle = "zoom";
 const List<int> openAppLaunchDelayOptions = <int>[1, 2, 3];
 const int defaultOpenAppLaunchDelay = 1;
 
-/// Size of the app-card focus highlight outline (small/medium/large).
-const List<String> appHighlightSizeOptions = <String>["small", "medium", "large"];
+/// Size of the app-card focus highlight outline (small/medium).
+const List<String> appHighlightSizeOptions = <String>["small", "medium"];
 const String defaultAppHighlightSize = "small";
 
 /// Dark gradient scrim behind the status bar (off/small/medium/large).

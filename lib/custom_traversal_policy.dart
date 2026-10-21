@@ -161,7 +161,14 @@ extension Geometry on FocusNode {
   }
 
   bool isOnTheSameRow(FocusNode other) {
-    return rect.center.dy.round() == other.rect.center.dy.round();
+    // Compare vertical extents instead of exact center positions: dock icons
+    // are scaled around their bottom edge, so their centers move up/down
+    // slightly while they still belong to the same row.
+    final Rect a = rect;
+    final Rect b = other.rect;
+    if (a.isEmpty || b.isEmpty) return false;
+    final double overlap = min(a.bottom, b.bottom) - max(a.top, b.top);
+    return overlap >= min(a.height, b.height) * 0.5;
   }
 
   double distance(FocusNode other) {

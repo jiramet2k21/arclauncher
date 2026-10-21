@@ -196,10 +196,9 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
     }
     final appImageWidget = _appImage();
     final bool shouldHighlight = _shouldHighlight();
-    final double _highlightScale = switch (context.select<SettingsService, String>((s) => s.appHighlightSize)) {
-      "medium" => 1.08,
-      "large" => 1.16,
-      _ => 1.0,
+    final double highlightMargin = switch (context.select<SettingsService, String>((s) => s.appHighlightSize)) {
+      "medium" => 6.0,
+      _ => 0.0,
     };
 
     return FocusKeyboardListener(
@@ -259,20 +258,28 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
                             ),
                           ),
                           if (shouldHighlight && showFocusBorders && !widget.suppressInternalHighlight)
-                            if (animationEnabled)
-                              IgnorePointer(
+                            Positioned.fill(
+                              left: -highlightMargin,
+                              top: -highlightMargin,
+                              right: -highlightMargin,
+                              bottom: -highlightMargin,
+                              child: IgnorePointer(
                                 child: RepaintBoundary(
-                                  child: AnimatedBuilder(
-                                    animation: _curvedAnimation,
-                                    builder: (context, _) {
-                                      final alpha = 0.4 + (_animation.value * 0.6);
-                                      return _HighlightOutline(color: _accentColor.withValues(alpha: alpha), scale: _highlightScale);
-                                    },
-                                  ),
+                                  child: animationEnabled
+                                      ? AnimatedBuilder(
+                                          animation: _curvedAnimation,
+                                          builder: (context, _) {
+                                            final alpha = 0.4 + (_animation.value * 0.6);
+                                            return _HighlightOutline(
+                                              color: _accentColor.withValues(alpha: alpha),
+                                              margin: highlightMargin,
+                                            );
+                                          },
+                                        )
+                                      : _HighlightOutline(color: _accentColor, margin: highlightMargin),
                                 ),
-                              )
-                            else
-                              IgnorePointer(child: RepaintBoundary(child: _HighlightOutline(color: _accentColor, scale: _highlightScale))),
+                              ),
+                            ),
                         ],
                 ),
                 ),
@@ -647,25 +654,17 @@ class _AppNameLabel extends StatelessWidget {
 
 class _HighlightOutline extends StatelessWidget {
   final Color color;
-  final double scale;
+  final double margin;
 
-  const _HighlightOutline({required this.color, this.scale = 1.0});
+  const _HighlightOutline({required this.color, this.margin = 0.0});
 
   @override
   Widget build(BuildContext context) {
-    final outline = Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color, width: 1),
-          ),
-        ),
-      ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12 + margin),
+        border: Border.all(color: color, width: 1),
+      ),
     );
-
-    if (scale == 1.0) return outline;
-    return Transform.scale(scale: scale, child: outline);
   }
 }

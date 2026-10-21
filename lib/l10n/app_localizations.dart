@@ -990,12 +990,6 @@ abstract class AppLocalizations {
   /// **'Medium'**
   String get highlightSizeMedium;
 
-  /// No description provided for @highlightSizeLarge.
-  ///
-  /// In en, this message translates to:
-  /// **'Large'**
-  String get highlightSizeLarge;
-
   /// No description provided for @statusBarGradient.
   ///
   /// In en, this message translates to:

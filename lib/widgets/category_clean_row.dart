@@ -38,7 +38,7 @@ const double kDockHighlightPad = 6.0;
 /// effect tapers with distance, and distant icons shrink slightly so the
 /// focused one stands out.
 double dockMagnificationScale(int distance) {
-  if (distance <= 0) return 1.25;
+  if (distance <= 0) return 1.5;
   if (distance == 1) return 1.10;
   if (distance == 2) return 1.00;
   return 0.92;
@@ -115,7 +115,11 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                     curve: Curves.easeOutCubic,
                     left: _focusedIndex * slotWidth + (slotWidth - highlightWidth) / 2,
                     width: highlightWidth,
-                    bottom: kAppCardVerticalPadding - kDockHighlightPad,
+                    // Icons are vertically centered in their slot; with
+                    // bottomCenter scaling the icon keeps its bottom edge, so
+                    // the highlight is anchored to that same edge. This keeps
+                    // equal padding on all four sides.
+                    bottom: rowHeight / 2 - iconHeight / 2 - kDockHighlightPad,
                     height: highlightHeight,
                     child: _DockHighlightBox(accentColor: accentColor),
                   ),
@@ -150,6 +154,7 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                                   handleUpNavigationToSettings: widget.isFirstSection,
                                   scrollAlignment: widget.scrollAlignment,
                                   enforceAspectRatio: false,
+                                  ensureVisibleOnFocus: false,
                                   disableInternalFocusScale: magnify,
                                   suppressInternalHighlight: magnify,
                                   onFocused: () {

@@ -442,7 +442,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get appHighlightSize => 'Highlight size';
   String get highlightSizeSmall => 'Small';
   String get highlightSizeMedium => 'Medium';
-  String get highlightSizeLarge => 'Large';
   String get statusBarGradient => 'Status bar gradient';
   String get gradientOff => 'Off';
   String get gradientSmall => 'Small';

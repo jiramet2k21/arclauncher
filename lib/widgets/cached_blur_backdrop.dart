@@ -83,16 +83,22 @@ class _CachedBlurBackdropState extends _CachedBlurBackgroundState<CachedBlurBack
 
   @override
   Widget buildBlurContent(Widget blurBackground) {
+    // Stable tree: the background layer may be swapped when a slideshow
+    // snapshot arrives, but the child keeps its element/state (dock icons
+    // must not reload when the wallpaper changes).
     return Stack(
       fit: StackFit.passthrough,
-      children: [Positioned.fill(child: blurBackground), widget.child],
+      children: [
+        Positioned.fill(child: blurBackground),
+        RepaintBoundary(child: widget.child),
+      ],
     );
   }
 
   @override
   Widget buildLiveBlur() => BackdropFilter(
     filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-    child: widget.child,
+    child: const SizedBox.expand(),
   );
 
   @override
@@ -142,6 +148,10 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
   Future<void> _build(WallpaperService service, Size size, double dpr) async {
     if (_building) return;
     _building = true;
+    final provider = blurSource(service);
+    final revision = service.wallpaperRevision;
+    final gradientId = provider == null ? service.gradient.uuid : null;
+    ui.Image? source;
     try {
       // A heavy GPU blur on the TV is the main cause of "slow" transitions, so
       // the snapshot is rendered at a quarter of the device pixel dimensions
@@ -152,8 +162,6 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
       final pxHeight = math.max(1, (size.height * dpr * snapshotScale).round());
       final rect = Rect.fromLTWH(0, 0, pxWidth.toDouble(), pxHeight.toDouble());
 
-      final provider = blurSource(service);
-      ui.Image? source;
       if (provider != null) {
         // Cap the decode to the screen size: the raw FileImage resolves at
         // full photo resolution (a 12MP photo decodes to ~46MB) even though
@@ -184,7 +192,6 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
       canvas.restore();
 
       final image = await recorder.endRecording().toImage(pxWidth, pxHeight);
-      source?.dispose();
 
       if (!mounted) {
         image.dispose();
@@ -194,11 +201,18 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
         _blurred?.dispose();
         _blurred = image;
         _builtSize = size;
-        _builtRevision = service.wallpaperRevision;
-        _builtGradientId = provider == null ? service.gradient.uuid : null;
+        // Store the revision this snapshot was built from, not the current
+        // one: the slideshow may have advanced while we were decoding.
+        _builtRevision = revision;
+        _builtGradientId = gradientId;
         _builtSigma = sigma;
       });
+    } catch (error, stackTrace) {
+      // Keep the previous snapshot on failure (a corrupt/slow image should not
+      // blank the blur or take the launcher down).
+      debugPrint('CachedBlur: failed to build snapshot: $error\n$stackTrace');
     } finally {
+      source?.dispose();
       _building = false;
     }
   }
@@ -231,7 +245,7 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
       // expensive on this GPU and made playback choppy, so it is only used
       // when explicitly enabled; otherwise the content shows unblurred.
       return settings.videoWallpaperBlurEnabled
-          ? buildLiveBlur()
+          ? buildBlurContent(buildLiveBlur())
           : buildBlurDisabled();
     }
 
@@ -253,10 +267,12 @@ abstract class _CachedBlurBackgroundState<T extends StatefulWidget> extends Stat
           });
         }
         final image = _blurred;
-        if (image == null || stale) {
+        if (image == null) {
           // Snapshot not ready: fall back to the live blur for correctness.
-          return buildLiveBlur();
+          return buildBlurContent(buildLiveBlur());
         }
+        // Keep showing the previous snapshot while a new one is prepared
+        // (e.g. on every slideshow change) instead of flashing the live blur.
         return buildBlurContent(_BlurBlit(image: image, screenSize: screen, filterQuality: blitQuality));
       },
     );

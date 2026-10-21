@@ -39,9 +39,6 @@ class HighlightSizePage extends StatelessWidget {
       case "medium":
         label = "Medium";
         break;
-      case "large":
-        label = "Large";
-        break;
       case "small":
       default:
         label = "Small";
