@@ -206,6 +206,11 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     _setAppGridFocused(false);
   }
 
+  void _onDockSectionFocused() {
+    _setAppGridFocused(false);
+    _scrollDockToBottom();
+  }
+
   Widget _tvOSLayout(BuildContext context, AppsService appsService, {required bool showAppNames}) {
     final favoritesCategory = appsService.categories.firstWhereOrNull((c) => c.name == 'Favorites');
     final favoriteApps = favoritesCategory?.applications ?? const [];
@@ -430,6 +435,23 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _scrollDockToBottom() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    final position = _scrollController.position;
+    if ((position.pixels - position.minScrollExtent).abs() < 16) {
+      return;
+    }
+
+    await _scrollController.animateTo(
+      position.minScrollExtent,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
   double? _dockTopScrollOffset() {
     final dockContext = _dockKey.currentContext;
     final renderObject = dockContext?.findRenderObject();
@@ -500,7 +522,7 @@ class _FLauncherState extends State<FLauncher> with WidgetsBindingObserver {
       applications: apps,
       isFirstSection: handleUpNavigationToSettings,
       scrollAlignment: 1.0,
-      onAppFocused: _onHomeSectionFocused,
+      onAppFocused: _onDockSectionFocused,
     );
 
     final background = Container(
