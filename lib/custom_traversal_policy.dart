@@ -76,10 +76,14 @@ class NodeSearcher {
 
     switch (directionToSearch) {
       case TraversalDirection.up:
-        copy.removeWhere((element) => element.isBelowOrEquals(from));
+        // Dock icons are bottom-anchored when scaled, so their centers are
+        // not equal. Exclude same-row nodes explicitly, otherwise a DOWN press
+        // from a magnified dock icon treats its neighbors as "below" and
+        // hijacks the vertical navigation.
+        copy.removeWhere((element) => element.isBelowOrEquals(from) || element.isOnTheSameRow(from));
         break;
       case TraversalDirection.down:
-        copy.removeWhere((element) => element.isAboveOrEquals(from));
+        copy.removeWhere((element) => element.isAboveOrEquals(from) || element.isOnTheSameRow(from));
         break;
       case TraversalDirection.right:
         copy.removeWhere((element) => element.isLeftToOrEquals(from) || !element.isOnTheSameRow(from));

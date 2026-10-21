@@ -39,9 +39,9 @@ const double kDockHighlightPad = 6.0;
 /// focused one stands out.
 double dockMagnificationScale(int distance) {
   if (distance <= 0) return 1.5;
-  if (distance == 1) return 1.10;
+  if (distance == 1) return 1.15;
   if (distance == 2) return 1.00;
-  return 0.92;
+  return 0.95;
 }
 
 class CategoryCleanRow extends StatefulWidget {
