@@ -17,7 +17,6 @@
  */
 
 import 'dart:math' as math;
-import 'dart:ui' show TextDirection;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -758,22 +757,19 @@ class _GaugePainter extends CustomPainter {
     final center = rect.center;
     final radius = math.min(rect.width, rect.height) / 2;
 
-    final gradient = SweepGradient(
-      startAngle: _startAngle,
-      endAngle: _startAngle + _sweep,
-      colors: [
-        ...colors,
-        colors.last.withValues(alpha: 0.0),
-      ],
-      transform: const GradientRotation(0),
-    );
-
+    final bandRect = Rect.fromCircle(center: center, radius: radius * 0.78);
     final band = Paint()
-      ..shader = gradient
       ..style = PaintingStyle.stroke
       ..strokeWidth = radius * 0.32
-      ..strokeCap = StrokeCap.round;
-    final bandRect = Rect.fromCircle(center: center, radius: radius * 0.78);
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: _startAngle,
+        endAngle: _startAngle + _sweep,
+        colors: [
+          ...colors,
+          colors.last.withValues(alpha: 0.0),
+        ],
+      ).createShader(bandRect, textDirection: TextDirection.ltr);
     canvas.drawArc(bandRect, _startAngle, _sweep, false, band);
 
     if (value != null) {
