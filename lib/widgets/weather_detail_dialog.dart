@@ -465,10 +465,12 @@ class WeatherDetailDialog extends StatelessWidget {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _valueColor),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  "Gust ${current.windGust.round()} km/h",
-                  style: const TextStyle(fontSize: 11, color: _subColor),
-                ),
+        Text(
+          "Gust ${current.windGust.round()} km/h",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 10.5, color: _subColor),
+        ),
               ],
             ),
           ),
@@ -703,7 +705,8 @@ class _HourlyChartPainter extends CustomPainter {
         canvas,
         i < labels.length ? labels[i] : "",
         Offset(p.dx, size.height - 16),
-        anchorCenter: i != 0 && i != n - 1,
+        anchorCenter: true,
+        maxWidth: size.width,
         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
       );
     }
@@ -715,6 +718,7 @@ class _HourlyChartPainter extends CustomPainter {
     Offset position, {
     required bool anchorCenter,
     required TextStyle style,
+    double maxWidth = 0,
   }) {
     final builder = TextPainter(
       text: TextSpan(text: text, style: style),
@@ -722,10 +726,17 @@ class _HourlyChartPainter extends CustomPainter {
       maxLines: 1,
     );
     builder.layout();
-    final Offset origin = anchorCenter
-        ? Offset(position.dx - builder.width / 2, position.dy)
-        : position;
-    builder.paint(canvas, origin);
+    double dx;
+    if (anchorCenter) {
+      dx = position.dx - builder.width / 2;
+      // Keep edge ticks (e.g. "Now", last hour) inside the canvas.
+      if (maxWidth > 0) {
+        dx = dx.clamp(2.0, math.max(2.0, maxWidth - builder.width - 2));
+      }
+    } else {
+      dx = position.dx;
+    }
+    builder.paint(canvas, Offset(dx, position.dy));
   }
 
   @override
