@@ -6,6 +6,7 @@ class FocusableSettingsTile extends StatefulWidget {
   final Widget? trailing;
   final VoidCallback? onPressed;
   final bool autofocus;
+  final FocusNode? focusNode;
 
   const FocusableSettingsTile({
     Key? key,
@@ -14,6 +15,7 @@ class FocusableSettingsTile extends StatefulWidget {
     this.trailing,
     this.onPressed,
     this.autofocus = false,
+    this.focusNode,
   }) : super(key: key);
 
   @override
@@ -34,6 +36,7 @@ class _FocusableSettingsTileState extends State<FocusableSettingsTile> {
             ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(onInvoke: (_) => widget.onPressed?.call()),
           },
           child: Focus(
+            focusNode: widget.focusNode,
             autofocus: widget.autofocus,
             onFocusChange: (hasFocus) => setState(() => _focused = hasFocus),
             child: InkWell(

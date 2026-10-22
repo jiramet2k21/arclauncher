@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:flauncher/providers/settings_service.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
@@ -62,10 +63,94 @@ class _WeatherLocationPageState extends State<WeatherLocationPage> {
   bool _searching = false;
   String? _error;
 
+  /// The single-line TextField swallows remote UP/DOWN through Flutter's
+  /// text-editing shortcuts, so every focus hop on this page is wired
+  /// explicitly via FocusNode.onKeyEvent below.
+  late final FocusNode _searchFieldNode = FocusNode(onKeyEvent: _handleFieldKey);
+  late final FocusNode _searchButtonNode = FocusNode(onKeyEvent: _handleButtonKey);
+  List<FocusNode> _resultNodes = [];
+
   @override
   void dispose() {
     _controller.dispose();
+    _searchFieldNode.dispose();
+    _searchButtonNode.dispose();
+    for (final node in _resultNodes) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  KeyEventResult _handleFieldKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_resultNodes.isNotEmpty) {
+        _resultNodes.first.requestFocus();
+      } else {
+        _searchButtonNode.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleButtonKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown && _resultNodes.isNotEmpty) {
+        _resultNodes.first.requestFocus();
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        _searchFieldNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleResultKey(int index, FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+        index < _resultNodes.length - 1) {
+      _resultNodes[index + 1].requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (index == 0) {
+        _searchButtonNode.requestFocus();
+      } else {
+        _resultNodes[index - 1].requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _rebuildResultNodes(int count) {
+    final focused = _resultNodes.any((node) => node.hasFocus);
+    for (final node in _resultNodes) {
+      node.dispose();
+    }
+    _resultNodes = [];
+    for (var i = 0; i < count; i++) {
+      // Fresh local per iteration so every node's handler keeps its own row.
+      final index = i;
+      _resultNodes.add(FocusNode(
+          onKeyEvent: (node, event) => _handleResultKey(index, node, event)));
+    }
+    if (focused) {
+      _searchFieldNode.requestFocus();
+    }
+  }
+
+  void _hideKeyboard() {
+    SystemChannels.textInput.invokeMethod("TextInput.hide");
+  }
+
+  void _onSearchSubmitted() {
+    _hideKeyboard();
+    _search();
   }
 
   Future<void> _search() async {
@@ -109,6 +194,7 @@ class _WeatherLocationPageState extends State<WeatherLocationPage> {
       }
       setState(() {
         _results = parsed;
+        _rebuildResultNodes(parsed.length);
         if (parsed.isEmpty) {
           _error = "No places found.";
         }
@@ -157,9 +243,10 @@ class _WeatherLocationPageState extends State<WeatherLocationPage> {
               const SizedBox(height: 8),
               TextField(
                 controller: _controller,
+                focusNode: _searchFieldNode,
                 autofocus: true,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _search(),
+                onSubmitted: (value) => _onSearchSubmitted(),
                 decoration: const InputDecoration(
                   labelText: "City",
                   border: OutlineInputBorder(),
@@ -167,10 +254,11 @@ class _WeatherLocationPageState extends State<WeatherLocationPage> {
               ),
               const SizedBox(height: 8),
               ElevatedButton.icon(
+                focusNode: _searchButtonNode,
                 autofocus: false,
                 icon: const Icon(Icons.search),
                 label: const Text("Search"),
-                onPressed: _searching ? null : _search,
+                onPressed: _searching ? null : _onSearchSubmitted,
               ),
               if (_searching) ...[
                 const SizedBox(height: 12),
@@ -184,11 +272,12 @@ class _WeatherLocationPageState extends State<WeatherLocationPage> {
                 ),
               ],
               const SizedBox(height: 8),
-              for (final result in _results)
+              for (var i = 0; i < _results.length; i++)
                 FocusableSettingsTile(
+                  focusNode: i < _resultNodes.length ? _resultNodes[i] : null,
                   leading: const Icon(Icons.location_on_outlined),
-                  title: Text(result.label),
-                  onPressed: () => _select(result),
+                  title: Text(_results[i].label),
+                  onPressed: () => _select(_results[i]),
                 ),
             ],
           ),
