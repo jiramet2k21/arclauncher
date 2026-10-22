@@ -25,13 +25,17 @@ import 'package:http/http.dart' as http;
 
 import 'settings_service.dart';
 
-/// Current conditions for today (status bar + top of the popup).
+/// Current conditions for today (status bar + hero of the popup).
 class CurrentWeather {
   final double temperature;
   final int weatherCode;
   final double apparentTemperature;
   final int humidity;
   final double windSpeed;
+  final double windGust;
+  final int windDirection;
+  final double pressure;
+  final double dewPoint;
 
   /// Today's high/low, taken from the first entry of the daily block.
   final double high;
@@ -43,6 +47,10 @@ class CurrentWeather {
     required this.apparentTemperature,
     required this.humidity,
     required this.windSpeed,
+    required this.windGust,
+    required this.windDirection,
+    required this.pressure,
+    required this.dewPoint,
     required this.high,
     required this.low,
   });
@@ -63,12 +71,45 @@ class DailyWeather {
   });
 }
 
-/// Current conditions + 7-day forecast for the configured location.
+/// One entry of the 24-hour chart (temperature + precipitation probability).
+class HourlyPoint {
+  final double temperature;
+  final int precipProbability;
+
+  const HourlyPoint({required this.temperature, required this.precipProbability});
+}
+
+/// Air quality + UV from Open-Meteo's air-quality endpoint (optional).
+class AirQuality {
+  final int? usAqi;
+  final double? uvIndex;
+
+  const AirQuality({required this.usAqi, required this.uvIndex});
+}
+
+/// Current conditions + 7-day forecast + 24h chart for the configured location.
 class WeatherData {
   final CurrentWeather current;
   final List<DailyWeather> daily;
+  final List<HourlyPoint> hourly;
 
-  const WeatherData({required this.current, required this.daily});
+  /// Surface pressure change over the last ~2 hours (hPa). Positive = rising.
+  final double pressureTrend;
+
+  /// Visibility in kilometers (from the current hour).
+  final double visibilityKm;
+
+  /// Air quality / UV; null when the endpoint failed or returned nothing.
+  final AirQuality? air;
+
+  const WeatherData({
+    required this.current,
+    required this.daily,
+    required this.hourly,
+    required this.pressureTrend,
+    required this.visibilityKm,
+    required this.air,
+  });
 }
 
 /// Fetches weather data from Open-Meteo (free, no API key).
@@ -132,7 +173,10 @@ class WeatherService extends ChangeNotifier {
             "latitude": "${_settings.weatherLatitude}",
             "longitude": "${_settings.weatherLongitude}",
             "current":
-                "temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m",
+                "temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure,dew_point_2m",
+            "hourly": "temperature_2m,precipitation_probability,visibility,surface_pressure",
+            "forecast_hours": "24",
+            "past_hours": "2",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min",
             "forecast_days": "8",
             "timezone": "auto",
@@ -143,7 +187,7 @@ class WeatherService extends ChangeNotifier {
       }
       final body = jsonDecode(utf8.decode(response.bodyBytes))
           as Map<String, dynamic>;
-      data = _parseForecast(body);
+      data = _parseForecast(body, air: await _loadAirQuality());
       error = null;
       _lastFetch = DateTime.now();
     } catch (exception, stackTrace) {
@@ -158,9 +202,13 @@ class WeatherService extends ChangeNotifier {
     _timer = Timer(const Duration(minutes: 60), refresh);
   }
 
-  WeatherData _parseForecast(Map<String, dynamic> body) {
+  WeatherData _parseForecast(
+    Map<String, dynamic> body, {
+    required AirQuality? air,
+  }) {
     final current = body["current"] as Map<String, dynamic>;
     final daily = body["daily"] as Map<String, dynamic>;
+    final hourly = body["hourly"] as Map<String, dynamic>? ?? {};
 
     final dates =
         (daily["time"] as List? ?? []).map((value) => value.toString()).toList();
@@ -181,6 +229,34 @@ class WeatherService extends ChangeNotifier {
       ));
     }
 
+    // Hourly block: past_hours=2 puts the current hour at index 2
+    // (indexes 0-1 are in the past). Chart uses indexes 2..25.
+    final hourlyTemps = _toDoubleList(hourly["temperature_2m"]);
+    final hourlyPops = _toIntList(hourly["precipitation_probability"]);
+    final hourlyPressure = _toDoubleList(hourly["surface_pressure"]);
+    final hourlyVisibility = _toDoubleList(hourly["visibility"]);
+
+    final chart = <HourlyPoint>[];
+    for (var i = 2; i < 2 + 24; i++) {
+      if (i >= hourlyTemps.length) {
+        break;
+      }
+      chart.add(HourlyPoint(
+        temperature: hourlyTemps[i],
+        precipProbability: i < hourlyPops.length ? hourlyPops[i] : 0,
+      ));
+    }
+
+    double visibilityKm = 0.0;
+    if (hourlyVisibility.isNotEmpty && hourlyVisibility.length > 2) {
+      visibilityKm = hourlyVisibility[2] / 1000.0;
+    }
+
+    double pressureTrend = 0.0;
+    if (hourlyPressure.length > 2) {
+      pressureTrend = hourlyPressure[2] - hourlyPressure[0];
+    }
+
     return WeatherData(
       current: CurrentWeather(
         temperature: _toDouble(current["temperature_2m"]) ?? 0.0,
@@ -188,11 +264,47 @@ class WeatherService extends ChangeNotifier {
         apparentTemperature: _toDouble(current["apparent_temperature"]) ?? 0.0,
         humidity: _toInt(current["relative_humidity_2m"]) ?? 0,
         windSpeed: _toDouble(current["wind_speed_10m"]) ?? 0.0,
+        windGust: _toDouble(current["wind_gusts_10m"]) ?? 0.0,
+        windDirection: _toInt(current["wind_direction_10m"]) ?? 0,
+        pressure: _toDouble(current["surface_pressure"]) ?? 0.0,
+        dewPoint: _toDouble(current["dew_point_2m"]) ?? 0.0,
         high: forecast.isNotEmpty ? forecast.first.high : 0.0,
         low: forecast.isNotEmpty ? forecast.first.low : 0.0,
       ),
       daily: forecast,
+      hourly: chart,
+      pressureTrend: pressureTrend,
+      visibilityKm: visibilityKm,
+      air: air,
     );
+  }
+
+  /// Fetches US AQI + UV index from Open-Meteo's air-quality API. Failures
+  /// return null so forecast data still renders (tiles show "–").
+  Future<AirQuality?> _loadAirQuality() async {
+    try {
+      final response = await http
+          .get(Uri.https("air-quality-api.open-meteo.com", "/v1/air-quality", {
+            "latitude": "${_settings.weatherLatitude}",
+            "longitude": "${_settings.weatherLongitude}",
+            "current": "us_aqi,uv_index",
+          }))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        debugPrint("WeatherService: air-quality HTTP ${response.statusCode}");
+        return null;
+      }
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      final current = body["current"] as Map<String, dynamic>? ?? {};
+      return AirQuality(
+        usAqi: _toInt(current["us_aqi"]),
+        uvIndex: _toDouble(current["uv_index"]),
+      );
+    } catch (exception, stackTrace) {
+      debugPrint("WeatherService: air-quality fetch failed $exception\n$stackTrace");
+      return null;
+    }
   }
 
   /// Maps a WMO weather code to a Material icon.
