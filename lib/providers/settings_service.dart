@@ -59,6 +59,10 @@ const String _openAppAnimationStyle = "open_app_animation_style";
 const String _openAppLaunchDelay = "open_app_launch_delay";
 const String _appHighlightSize = "app_highlight_size";
 const String _statusBarGradient = "status_bar_gradient";
+const String _weatherEnabled = "weather_enabled";
+const String _weatherCityName = "weather_city_name";
+const String _weatherLatitude = "weather_latitude";
+const String _weatherLongitude = "weather_longitude";
 
 /// Status bar clock size steps (logical pixels). The date is rendered at the
 /// same size as the clock.
@@ -243,6 +247,16 @@ class SettingsService extends ChangeNotifier {
         ? value
         : defaultStatusBarGradient;
   }
+
+  /// Sidebar weather widget toggle.
+  bool get weatherEnabled => _sharedPreferences.getBool(_weatherEnabled) ?? false;
+
+  /// Weather location display name (empty when not configured).
+  String get weatherCityName => _sharedPreferences.getString(_weatherCityName) ?? "";
+
+  double get weatherLatitude => _sharedPreferences.getDouble(_weatherLatitude) ?? 0.0;
+
+  double get weatherLongitude => _sharedPreferences.getDouble(_weatherLongitude) ?? 0.0;
 
   Color get accentColor {
     final hex = accentColorHex;
@@ -455,6 +469,24 @@ class SettingsService extends ChangeNotifier {
       _statusBarGradient,
       statusBarGradientOptions.contains(value) ? value : defaultStatusBarGradient,
     );
+    notifyListeners();
+  }
+
+  Future<void> setWeatherEnabled(bool value) async {
+    return set(_weatherEnabled, value);
+  }
+
+  Future<void> setWeatherLocation(String name, double latitude, double longitude) async {
+    await _sharedPreferences.setString(_weatherCityName, name);
+    await _sharedPreferences.setDouble(_weatherLatitude, latitude);
+    await _sharedPreferences.setDouble(_weatherLongitude, longitude);
+    notifyListeners();
+  }
+
+  Future<void> clearWeatherLocation() async {
+    await _sharedPreferences.remove(_weatherCityName);
+    await _sharedPreferences.remove(_weatherLatitude);
+    await _sharedPreferences.remove(_weatherLongitude);
     notifyListeners();
   }
 }

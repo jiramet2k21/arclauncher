@@ -1,9 +1,11 @@
 import 'package:flauncher/widgets/settings/settings_panel.dart';
+import 'package:flauncher/widgets/weather_detail_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/launcher_state.dart';
 import '../providers/settings_service.dart';
+import '../providers/weather_service.dart';
 import 'clock_text_style.dart';
 import 'daily_wifi_usage_widget.dart';
 import 'date_time_widget.dart';
@@ -76,7 +78,7 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
-          // Left side: Settings, Network indicator, WiFi usage
+          // Left side: Settings, Weather, Network indicator, WiFi usage
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -87,6 +89,17 @@ class FocusAwareAppBarState extends State<FocusAwareAppBar>
                 onPressed: () => showDialog(context: context, builder: (_) => const SettingsPanel()),
               ),
               const SizedBox(width: 16),
+              // Weather (current conditions) — only when enabled with a location
+              Selector<SettingsService, bool>(
+                selector: (_, settings) =>
+                    settings.weatherEnabled && settings.weatherCityName.isNotEmpty,
+                builder: (context, showWeather, _) => showWeather
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: _WeatherStatusWidget(),
+                    )
+                  : const SizedBox.shrink(),
+              ),
               // Network indicator (conditionally shown)
               Selector<SettingsService, bool>(
                 selector: (_, settings) => settings.showNetworkIndicatorInStatusBar,
@@ -273,6 +286,83 @@ class _FocusableNetworkWidgetState extends State<_FocusableNetworkWidget> {
             : null,
         ),
         child: const NetworkWidget(),
+      ),
+    );
+  }
+}
+
+/// Weather button (icon + current temperature) with a focus indicator.
+class _WeatherStatusWidget extends StatefulWidget {
+  const _WeatherStatusWidget({Key? key}) : super(key: key);
+
+  @override
+  State<_WeatherStatusWidget> createState() => _WeatherStatusWidgetState();
+}
+
+class _WeatherStatusWidgetState extends State<_WeatherStatusWidget> {
+  bool _focused = false;
+
+  void _showWeather(BuildContext context) {
+    final weatherService = context.read<WeatherService>();
+    weatherService.refreshIfStale();
+    showDialog(
+      context: context,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: weatherService,
+        child: WeatherDetailDialog(cityName: context.read<SettingsService>().weatherCityName),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Actions(
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => _showWeather(context)),
+        ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(onInvoke: (_) => _showWeather(context)),
+      },
+      child: Focus(
+        onFocusChange: (hasFocus) {
+          if (hasFocus) {
+            context.read<LauncherState>().setAppGridFocused(false);
+          }
+          setState(() => _focused = hasFocus);
+        },
+        child: InkWell(
+          onTap: () => _showWeather(context),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: _focused
+                ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+                : null,
+              boxShadow: _focused
+                ? const [BoxShadow(color: Colors.black54, blurRadius: 8, spreadRadius: 1)]
+                : null,
+            ),
+            child: Consumer<WeatherService>(builder: (context, weather, _) {
+              final data = weather.data;
+              final String text = data == null ? "–°" : "${data.current.temperature.round()}°";
+              final IconData icon = data == null
+                ? Icons.cloud_outlined
+                : weather.weatherIconFor(data.current.weatherCode);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, shadows: const [
+                    Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2))
+                  ]),
+                  const SizedBox(width: 6),
+                  Text(text, style: const TextStyle(shadows: [
+                    Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2))
+                  ])),
+                ],
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

@@ -23,6 +23,7 @@ import 'package:flauncher/widgets/settings/clock_font_page.dart';
 import 'package:flauncher/widgets/settings/clock_size_page.dart';
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
 import 'package:flauncher/widgets/settings/status_bar_gradient_page.dart';
+import 'package:flauncher/widgets/settings/weather_panel_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flauncher/l10n/app_localizations.dart';
@@ -112,6 +113,18 @@ class StatusBarPanelPage extends StatelessWidget {
                           await mediaService.refresh();
                         },
                       ),
+                ),
+                Divider(),
+                Consumer<SettingsService>(
+                  builder: (context, settings, __) => FocusableSettingsTile(
+                    leading: const Icon(Icons.thermostat),
+                    title: const Text("Weather"),
+                    trailing: Text(
+                      settings.weatherCityName.isEmpty ? "Off" : settings.weatherCityName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onPressed: () => Navigator.of(context).pushNamed(WeatherPanelPage.routeName),
+                  ),
                 ),
                 RoundedSwitchListTile(
                   value: settingsService.showWifiWidgetInStatusBar,

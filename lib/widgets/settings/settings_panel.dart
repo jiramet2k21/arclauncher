@@ -42,6 +42,8 @@ import 'package:flauncher/widgets/settings/clock_font_page.dart';
 import 'package:flauncher/widgets/settings/open_app_animation_page.dart';
 import 'package:flauncher/widgets/settings/open_app_delay_page.dart';
 import 'package:flauncher/widgets/settings/clock_size_page.dart';
+import 'package:flauncher/widgets/settings/weather_location_page.dart';
+import 'package:flauncher/widgets/settings/weather_panel_page.dart';
 import 'package:flauncher/models/app.dart';
 import 'package:flutter/material.dart';
 
@@ -128,6 +130,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       return _FastPageRoute(builder: (_) => const OpenAppAnimationPage());
                     case OpenAppDelayPage.routeName:
                       return _FastPageRoute(builder: (_) => const OpenAppDelayPage());
+                    case WeatherPanelPage.routeName:
+                      return _FastPageRoute(builder: (_) => const WeatherPanelPage());
+                    case WeatherLocationPage.routeName:
+                      return _FastPageRoute(builder: (_) => const WeatherLocationPage());
                     case AppDetailsPage.routeName:
                       return _FastPageRoute(
                           builder: (_) => AppDetailsPage(application: settings.arguments as App));
