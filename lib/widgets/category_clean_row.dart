@@ -68,10 +68,38 @@ class CategoryCleanRow extends StatefulWidget {
 class _CategoryCleanRowState extends State<CategoryCleanRow> {
   int _focusedIndex = -1;
 
+  // Remembers where the highlight last lived so it can fade out in place
+  // after focus leaves the dock instead of vanishing mid-shrink.
+  int _lastFocusedIndex = -1;
+
   double _scaleFor(int index) {
     if (_focusedIndex < 0) return 1.0;
     final distance = (index - _focusedIndex).abs();
     return dockMagnificationScale(distance);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_handlePrimaryFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_handlePrimaryFocusChanged);
+    super.dispose();
+  }
+
+  // Clears the sliding highlight and magnification as soon as focus leaves
+  // this row (e.g. DOWN into the app grid or UP to the app-bar gear).
+  void _handlePrimaryFocusChanged() {
+    if (_focusedIndex < 0) return;
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final insideRow = focusContext != null &&
+        focusContext.findAncestorStateOfType<_CategoryCleanRowState>() == this;
+    if (!insideRow) {
+      setState(() => _focusedIndex = -1);
+    }
   }
 
   @override
@@ -99,6 +127,9 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
           final iconHeight = magnify ? iconWidth / kAppCardAspectRatio : availHeight;
           final highlightVisible =
               magnify && _focusedIndex >= 0 && _focusedIndex < widget.applications.length;
+          // The highlight stays in the tree while fading out, parked on the
+          // last slot that had focus.
+          final highlightIndex = _focusedIndex >= 0 ? _focusedIndex : _lastFocusedIndex;
           final focusedScale = dockMagnificationScale(0);
           final highlightWidth = iconWidth * focusedScale + kDockHighlightPad * 2;
           final highlightHeight = iconHeight * focusedScale + kDockHighlightPad * 2;
@@ -109,11 +140,13 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
               children: [
                 // Shared focus highlight: the accent edge slides between slots
                 // instead of blinking per icon, staying behind the icons.
-                if (highlightVisible)
+                if (magnify &&
+                    highlightIndex >= 0 &&
+                    highlightIndex < widget.applications.length)
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOutCubic,
-                    left: _focusedIndex * slotWidth + (slotWidth - highlightWidth) / 2,
+                    left: highlightIndex * slotWidth + (slotWidth - highlightWidth) / 2,
                     width: highlightWidth,
                     // Icons are vertically centered in their slot; with
                     // bottomCenter scaling the icon keeps its bottom edge, so
@@ -121,7 +154,11 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                     // equal padding on all four sides.
                     bottom: rowHeight / 2 - iconHeight / 2 - kDockHighlightPad,
                     height: highlightHeight,
-                    child: _DockHighlightBox(accentColor: accentColor),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: highlightVisible ? 1.0 : 0.0,
+                      child: _DockHighlightBox(accentColor: accentColor),
+                    ),
                   ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -160,7 +197,10 @@ class _CategoryCleanRowState extends State<CategoryCleanRow> {
                                   onFocused: () {
                                     widget.onAppFocused?.call();
                                     if (_focusedIndex != index) {
-                                      setState(() => _focusedIndex = index);
+                                      setState(() {
+                                        _focusedIndex = index;
+                                        _lastFocusedIndex = index;
+                                      });
                                     }
                                   },
                                   onMove: (direction) => _onMove(context, direction, index),
