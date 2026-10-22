@@ -17,7 +17,7 @@
  */
 
 import 'package:flauncher/widgets/settings/focusable_settings_tile.dart';
-import 'package:flauncher/widgets/settings/rounded_switch_list_tile.dart';
+import 'package:flauncher/widgets/rounded_switch_list_tile.dart';
 import 'package:flauncher/widgets/settings/weather_location_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
