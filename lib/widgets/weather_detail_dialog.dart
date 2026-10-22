@@ -660,9 +660,12 @@ class _HourlyChartPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, strokePaint);
 
-    // Tick labels every 3 hours (plus the last point).
+    // Tick labels every 3 hours (plus the last point, unless it is so close
+    // to the final 3h tick that the two labels would collide).
     for (var i = 0; i < n; i++) {
-      final bool isTick = i % 3 == 0 || i == n - 1;
+      final bool isLast = i == n - 1;
+      final bool isTick = isLast ||
+          (i % 3 == 0 && !((n - 1) % 3 != 0 && n - 1 - i == 1));
       if (!isTick) {
         continue;
       }
