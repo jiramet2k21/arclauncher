@@ -34,14 +34,13 @@ const double kDockIconWidthRatio = 0.75;
 /// next to the icon it surrounds.
 const double kDockHighlightPad = 6.0;
 
-/// macOS-style magnification curve: the focused icon grows the most, the
-/// effect tapers with distance, and distant icons shrink slightly so the
-/// focused one stands out.
+/// macOS-style magnification curve: the focused icon grows the most and the
+/// effect tapers with distance while the rest of the dock keeps its normal
+/// size.
 double dockMagnificationScale(int distance) {
   if (distance <= 0) return 1.5;
   if (distance == 1) return 1.15;
-  if (distance == 2) return 1.00;
-  return 0.95;
+  return 1.00;
 }
 
 class CategoryCleanRow extends StatefulWidget {
