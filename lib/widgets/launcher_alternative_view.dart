@@ -29,6 +29,10 @@ class AlternativeLauncherView extends StatelessWidget {
     selector: (_, service) => (service.timeFormat, service.dateFormat, service.screensaverClockStyle),
     builder: (context, formats, _) {
       final (timeFormat, dateFormat, clockStyle) = formats;
+      // "No clock - slideshow photo" style: show the wallpaper only.
+      if (clockStyle == 'slideshow') {
+        return const SizedBox.shrink();
+      }
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

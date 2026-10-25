@@ -6,6 +6,8 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Handler;
@@ -15,11 +17,14 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,6 +32,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ClockScreensaverService extends DreamService {
     private static final String TAG = "ClockScreensaver";
@@ -54,6 +61,28 @@ public class ClockScreensaverService extends DreamService {
     private static final int AMPM_FONT_SIZE = 32; // sp (~40% of TIME_FONT_SIZE)
     private static final int CHAR_ANIMATION_DURATION = 800; // ms per character
     private static final int CHAR_STAGGER_DELAY = 100; // ms between characters
+
+    // "No clock - slideshow photo" style: full-screen slideshow of the same
+    // images the launcher's background slideshow uses.
+    private static final String STYLE_SLIDESHOW = "slideshow";
+    private static final int SLIDESHOW_FADE_DURATION = 800; // ms crossfade
+    private static final String SLIDESHOW_HINT =
+            "Set a slideshow folder in Settings > Interface > Wallpaper";
+
+    private boolean slideshowMode = false;
+    private ImageView slideshowViewA;
+    private ImageView slideshowViewB;
+    private TextView slideshowHintView;
+    private final Bitmap[] slideshowBitmaps = new Bitmap[2];
+    private final List<File> slideshowFiles = new ArrayList<>();
+    private int slideshowIndex = 0;
+    private long slideshowIntervalMs = 30000L;
+    private boolean slideshowShuffle = true;
+    private boolean slideshowFrontIsA = true;
+    private boolean slideshowActive = false;
+    private int slideshowGeneration = 0;
+    private Runnable slideshowRunnable;
+    private ExecutorService slideshowExecutor;
 
     @Override
     public void onAttachedToWindow() {
@@ -93,12 +122,19 @@ public class ClockScreensaverService extends DreamService {
             handler.postDelayed(moveClockRunnable, 30000);
         };
 
-        // Initial setup
+        // Initial setup: either the moving clock or the photo slideshow.
         try {
-            createCharacterViews();
-            updateTime();
+            SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+            slideshowMode = STYLE_SLIDESHOW.equals(
+                    prefs.getString("flutter.screensaver_clock_style", "minimal"));
+            if (slideshowMode) {
+                setupSlideshowViews();
+            } else {
+                createCharacterViews();
+                updateTime();
+            }
         } catch (RuntimeException e) {
-            Log.e(TAG, "Failed to build screensaver clock", e);
+            Log.e(TAG, "Failed to build screensaver content", e);
         }
     }
 
@@ -106,6 +142,10 @@ public class ClockScreensaverService extends DreamService {
     public void onDreamingStarted() {
         super.onDreamingStarted();
         if (handler == null) {
+            return;
+        }
+        if (slideshowMode) {
+            startSlideshow();
             return;
         }
         // Start the update/motion loops only while the dream is actually
@@ -134,6 +174,246 @@ public class ClockScreensaverService extends DreamService {
             animator.cancel();
         }
         runningAnimators.clear();
+        stopSlideshow();
+    }
+
+    // ------------------------------------------------------------------
+    // "No clock - slideshow photo" mode
+    // ------------------------------------------------------------------
+
+    private void setupSlideshowViews() {
+        slideshowViewA = createSlideshowImageView();
+        slideshowViewB = createSlideshowImageView();
+        container.addView(slideshowViewA);
+        container.addView(slideshowViewB);
+
+        slideshowHintView = new TextView(this);
+        slideshowHintView.setText(SLIDESHOW_HINT);
+        slideshowHintView.setTextColor(0xB3FFFFFF);
+        slideshowHintView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+        slideshowHintView.setGravity(Gravity.CENTER);
+        slideshowHintView.setPadding(48, 0, 48, 0);
+        slideshowHintView.setVisibility(View.GONE);
+        container.addView(slideshowHintView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+    }
+
+    private ImageView createSlideshowImageView() {
+        ImageView view = new ImageView(this);
+        view.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        view.setAlpha(1f);
+        view.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+        return view;
+    }
+
+    private void startSlideshow() {
+        if (!slideshowMode || container == null || handler == null) {
+            return;
+        }
+        stopSlideshow();
+
+        SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+        int intervalSeconds = prefs.getInt("flutter.slideshow_interval_seconds", 30);
+        slideshowIntervalMs = Math.max(5, intervalSeconds) * 1000L;
+        slideshowShuffle = prefs.getBoolean("flutter.slideshow_shuffle", true);
+
+        File directory = resolveSlideshowDirectory();
+        if (directory != null && directory.isDirectory()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        slideshowFiles.add(file);
+                    }
+                }
+            }
+        }
+        Collections.sort(slideshowFiles, (a, b) -> a.getName().compareTo(b.getName()));
+
+        if (slideshowFiles.isEmpty()) {
+            Log.w(TAG, "Slideshow style selected but no images in " + directory);
+            if (slideshowHintView != null) {
+                slideshowHintView.setVisibility(View.VISIBLE);
+            }
+            return;
+        }
+
+        if (slideshowShuffle) {
+            Collections.shuffle(slideshowFiles, random);
+        }
+        slideshowIndex = 0;
+        slideshowActive = true;
+        slideshowExecutor = Executors.newSingleThreadExecutor();
+
+        showSlide(0);
+
+        slideshowRunnable = () -> {
+            if (!slideshowActive) {
+                return;
+            }
+            advanceSlide();
+            if (handler != null) {
+                handler.postDelayed(slideshowRunnable, slideshowIntervalMs);
+            }
+        };
+        handler.postDelayed(slideshowRunnable, slideshowIntervalMs);
+    }
+
+    private void advanceSlide() {
+        if (slideshowFiles.isEmpty()) {
+            return;
+        }
+        if (slideshowIndex + 1 < slideshowFiles.size()) {
+            slideshowIndex++;
+        } else if (slideshowShuffle && slideshowFiles.size() > 1) {
+            // New shuffled cycle; make sure the first photo is not the one
+            // that was just on screen.
+            File lastShown = slideshowFiles.get(slideshowIndex);
+            Collections.shuffle(slideshowFiles, random);
+            if (slideshowFiles.get(0).getName().equals(lastShown.getName())) {
+                int swapIndex = 1 + random.nextInt(slideshowFiles.size() - 1);
+                Collections.swap(slideshowFiles, 0, swapIndex);
+            }
+            slideshowIndex = 0;
+        } else {
+            slideshowIndex = 0;
+        }
+        showSlide(slideshowIndex);
+    }
+
+    private void showSlide(int index) {
+        if (!slideshowActive || index < 0 || index >= slideshowFiles.size()) {
+            return;
+        }
+        final File file = slideshowFiles.get(index);
+        final int generation = ++slideshowGeneration;
+        final ExecutorService executor = slideshowExecutor;
+        if (executor == null) {
+            return;
+        }
+        try {
+            executor.execute(() -> {
+                Bitmap bitmap = decodeSlide(file);
+                if (bitmap == null) {
+                    return;
+                }
+                if (handler == null) {
+                    bitmap.recycle();
+                    return;
+                }
+                handler.post(() -> {
+                    if (!slideshowActive || generation != slideshowGeneration) {
+                        bitmap.recycle();
+                        return;
+                    }
+                    applySlideBitmap(bitmap);
+                });
+            });
+        } catch (RuntimeException e) {
+            // The executor may have been shut down while the dream was exiting.
+            Log.w(TAG, "Slideshow decode skipped", e);
+        }
+    }
+
+    private void applySlideBitmap(Bitmap bitmap) {
+        ImageView incoming = slideshowFrontIsA ? slideshowViewB : slideshowViewA;
+        int slot = slideshowFrontIsA ? 1 : 0;
+        if (incoming == null) {
+            bitmap.recycle();
+            return;
+        }
+        Bitmap previous = slideshowBitmaps[slot];
+        slideshowBitmaps[slot] = bitmap;
+        incoming.setImageBitmap(bitmap);
+        incoming.setAlpha(0f);
+        incoming.animate().alpha(1f).setDuration(SLIDESHOW_FADE_DURATION).start();
+        if (previous != null && previous != bitmap) {
+            previous.recycle();
+        }
+        slideshowFrontIsA = !slideshowFrontIsA;
+    }
+
+    private Bitmap decodeSlide(File file) {
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+            int sampleSize = 1;
+            int width = bounds.outWidth;
+            int height = bounds.outHeight;
+            while (width / (sampleSize * 2) >= screenWidth
+                    && height / (sampleSize * 2) >= screenHeight) {
+                sampleSize *= 2;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sampleSize;
+            return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        } catch (OutOfMemoryError | RuntimeException e) {
+            Log.e(TAG, "Failed to decode slideshow image " + file, e);
+            return null;
+        }
+    }
+
+    /**
+     * path_provider's application documents directory on Android is
+     * &lt;app data dir&gt;/app_flutter, which is where the launcher copies the
+     * background slideshow images.
+     */
+    private File resolveSlideshowDirectory() {
+        try {
+            File dataDir = new File(getApplicationInfo().dataDir);
+            File directory = new File(dataDir, "app_flutter/slideshow");
+            if (directory.isDirectory()) {
+                return directory;
+            }
+            File filesDir = getFilesDir();
+            if (filesDir != null && filesDir.getParentFile() != null) {
+                File alternate = new File(filesDir.getParentFile(), "app_flutter/slideshow");
+                if (alternate.isDirectory()) {
+                    return alternate;
+                }
+            }
+            return directory;
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Failed to resolve slideshow directory", e);
+            return null;
+        }
+    }
+
+    private void stopSlideshow() {
+        slideshowActive = false;
+        slideshowGeneration++;
+        if (handler != null && slideshowRunnable != null) {
+            handler.removeCallbacks(slideshowRunnable);
+        }
+        slideshowRunnable = null;
+        if (slideshowExecutor != null) {
+            slideshowExecutor.shutdownNow();
+            slideshowExecutor = null;
+        }
+        for (int i = 0; i < slideshowBitmaps.length; i++) {
+            if (slideshowBitmaps[i] != null) {
+                slideshowBitmaps[i].recycle();
+                slideshowBitmaps[i] = null;
+            }
+        }
+        if (slideshowViewA != null) {
+            slideshowViewA.setImageDrawable(null);
+            slideshowViewA.setAlpha(1f);
+        }
+        if (slideshowViewB != null) {
+            slideshowViewB.setImageDrawable(null);
+            slideshowViewB.setAlpha(1f);
+        }
+        if (slideshowHintView != null) {
+            slideshowHintView.setVisibility(View.GONE);
+        }
+        slideshowFiles.clear();
+        slideshowIndex = 0;
+        slideshowFrontIsA = true;
     }
 
     private void createCharacterViews() {
