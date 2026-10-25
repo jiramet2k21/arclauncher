@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.service.dreams.DreamService;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -28,6 +29,8 @@ import java.util.Locale;
 import java.util.Random;
 
 public class ClockScreensaverService extends DreamService {
+    private static final String TAG = "ClockScreensaver";
+
     private FrameLayout container;
     private Handler handler;
     private Runnable updateTimeRunnable;
@@ -35,6 +38,7 @@ public class ClockScreensaverService extends DreamService {
     private Random random;
     private int screenWidth;
     private int screenHeight;
+    private final List<Animator> runningAnimators = new ArrayList<>();
 
     private List<TextView> timeCharViews = new ArrayList<>();
     private List<TextView> dateCharViews = new ArrayList<>();
@@ -90,12 +94,46 @@ public class ClockScreensaverService extends DreamService {
         };
 
         // Initial setup
-        createCharacterViews();
-        updateTime();
+        try {
+            createCharacterViews();
+            updateTime();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Failed to build screensaver clock", e);
+        }
+    }
 
-        // Start handlers with initial delay
-        handler.postDelayed(moveClockRunnable, 30000);
+    @Override
+    public void onDreamingStarted() {
+        super.onDreamingStarted();
+        if (handler == null) {
+            return;
+        }
+        // Start the update/motion loops only while the dream is actually
+        // active. Starting them at attach time can leave timers running during
+        // a preview or a re-attach, which makes the service look frozen.
+        handler.removeCallbacks(updateTimeRunnable);
+        handler.removeCallbacks(moveClockRunnable);
         handler.post(updateTimeRunnable);
+        handler.postDelayed(moveClockRunnable, 30000);
+    }
+
+    @Override
+    public void onDreamingStopped() {
+        stopLoops();
+        super.onDreamingStopped();
+    }
+
+    /** Cancels pending timers and in-flight character animations. */
+    private void stopLoops() {
+        if (handler != null) {
+            handler.removeCallbacks(updateTimeRunnable);
+            handler.removeCallbacks(moveClockRunnable);
+            handler.removeCallbacksAndMessages(null);
+        }
+        for (Animator animator : runningAnimators) {
+            animator.cancel();
+        }
+        runningAnimators.clear();
     }
 
     private void createCharacterViews() {
@@ -104,8 +142,8 @@ public class ClockScreensaverService extends DreamService {
         String timeFormatString = prefs.getString("flutter.time_format", "H:mm");
         String dateFormatString = prefs.getString("flutter.date_format", "EEEE d");
 
-        SimpleDateFormat timeFormat = new SimpleDateFormat(timeFormatString, Locale.getDefault());
-        SimpleDateFormat dateFormat = new SimpleDateFormat(dateFormatString, Locale.getDefault());
+        SimpleDateFormat timeFormat = createFormatter(timeFormatString, "H:mm");
+        SimpleDateFormat dateFormat = createFormatter(dateFormatString, "EEEE d");
 
         String timeStr = timeFormat.format(new Date());
         String dateStr = dateFormat.format(new Date());
@@ -161,6 +199,19 @@ public class ClockScreensaverService extends DreamService {
 
         // Position characters at center
         positionCharacters(currentCenterX, currentCenterY, false);
+    }
+
+    /**
+     * Builds a SimpleDateFormat from a Flutter pattern preference. Flutter and
+     * Java use different pattern alphabets, so a stored pattern can be invalid
+     * here; fall back to the default instead of crashing the dream service.
+     */
+    private SimpleDateFormat createFormatter(String pattern, String fallbackPattern) {
+        try {
+            return new SimpleDateFormat(pattern, Locale.getDefault());
+        } catch (IllegalArgumentException e) {
+            return new SimpleDateFormat(fallbackPattern, Locale.getDefault());
+        }
     }
 
     private TextView createCharView(String character, int fontSize) {
@@ -284,12 +335,20 @@ public class ClockScreensaverService extends DreamService {
     }
 
     private void updateTime() {
+        try {
+            updateTimeInternal();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Failed to update screensaver clock", e);
+        }
+    }
+
+    private void updateTimeInternal() {
         SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
         String timeFormatString = prefs.getString("flutter.time_format", "H:mm");
         String dateFormatString = prefs.getString("flutter.date_format", "EEEE d");
 
-        SimpleDateFormat timeFormat = new SimpleDateFormat(timeFormatString, Locale.getDefault());
-        SimpleDateFormat dateFormat = new SimpleDateFormat(dateFormatString, Locale.getDefault());
+        SimpleDateFormat timeFormat = createFormatter(timeFormatString, "H:mm");
+        SimpleDateFormat dateFormat = createFormatter(dateFormatString, "EEEE d");
 
         String timeStr = timeFormat.format(new Date());
         String dateStr = dateFormat.format(new Date());
@@ -436,6 +495,13 @@ public class ClockScreensaverService extends DreamService {
 
         AnimatorSet fullAnim = new AnimatorSet();
         fullAnim.playTogether(moveAnim, scaleSet);
+        fullAnim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                runningAnimators.remove(animation);
+            }
+        });
+        runningAnimators.add(fullAnim);
         fullAnim.start();
     }
 
@@ -443,10 +509,6 @@ public class ClockScreensaverService extends DreamService {
     public void onDetachedFromWindow() {
         super.onDetachedFromWindow();
 
-        if (handler != null) {
-            handler.removeCallbacks(updateTimeRunnable);
-            handler.removeCallbacks(moveClockRunnable);
-            handler.removeCallbacksAndMessages(null);
-        }
+        stopLoops();
     }
 }
