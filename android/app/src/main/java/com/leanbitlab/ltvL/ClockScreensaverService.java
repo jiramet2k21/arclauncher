@@ -327,6 +327,10 @@ public class ClockScreensaverService extends DreamService {
         }
         Bitmap previous = slideshowBitmaps[slot];
         slideshowBitmaps[slot] = bitmap;
+        // The incoming view must sit on top of the one that is still visible,
+        // otherwise the crossfade happens behind an opaque image and the
+        // slideshow looks frozen after the first photo.
+        incoming.bringToFront();
         incoming.setImageBitmap(bitmap);
         incoming.setAlpha(0f);
         incoming.animate().alpha(1f).setDuration(SLIDESHOW_FADE_DURATION).start();
